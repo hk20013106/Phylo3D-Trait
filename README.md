@@ -4,7 +4,11 @@ Universal interactive 3D phylogenetic tree visualization tool with continuous tr
 
 Visualizes phylogenetic tree topology, evolutionary time, and continuous trait changes as an interactive 3D WebGL (Plotly) visualization in standalone, offline-viewable HTML.
 
-> 📖 **面向 AI Agent 与科研用户的完整操作手册**：参见 [**`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`**](file:///h:/Work/Paper_work/101_hemoglobin/docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)。
+<p align="center">
+  <img src="docs/assets/preview_eulipotyphla.png" alt="Phylo3D-Trait Interactive 3D Visualization" width="95%">
+</p>
+
+> 📖 **面向 AI Agent 与科研用户的完整操作手册**：参见 [**`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`**](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)。
 
 ---
 
@@ -190,8 +194,24 @@ fig.write_html("path/to/tree3d.html", include_plotlyjs="cdn")
 
 ## 8. Built-in Examples
 
-- **Example 1** ([`examples/example1/`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example1/)): 4-taxon dated tree with standard $Y=\text{Trait}=\text{Color}$ mapping and default baseline. Output: [`examples/example1/tree3d.html`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example1/tree3d.html).
-- **Example 2** ([`examples/example2/`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example2/)): 6-taxon nested phylogeny with `--baseline-y 0` ensuring positive curtain elevation at all ancestral nodes. Output: [`examples/example2/tree3d.html`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example2/tree3d.html).
+### Example 1: Standard 4-Taxon Dated Phylogeny
+- **Tree**: [`examples/example1/tree.nwk`](examples/example1/tree.nwk) (ultrametric dated tree)
+- **Trait table**: [`examples/example1/node_values.csv`](examples/example1/node_values.csv)
+- **Interactive output**: [`examples/example1/tree3d.html`](examples/example1/tree3d.html)
+
+<p align="center">
+  <img src="docs/assets/preview_example1.png" alt="Example 1 3D Phylogeny" width="90%">
+</p>
+
+### Example 2: 6-Taxon Nested Phylogeny with Baseline Y = 0
+- **Tree**: [`examples/example2/tree.nwk`](examples/example2/tree.nwk) (nested multi-level clades)
+- **Trait table**: [`examples/example2/node_values.csv`](examples/example2/node_values.csv)
+- **Interactive output**: [`examples/example2/tree3d.html`](examples/example2/tree3d.html)
+- **Command**: `python -m phylo3d_trait.cli plot --tree examples/example2/tree.nwk --values examples/example2/node_values.csv --output examples/example2/tree3d.html --baseline-y 0`
+
+<p align="center">
+  <img src="docs/assets/preview_example2.png" alt="Example 2 3D Phylogeny" width="90%">
+</p>
 
 ---
 

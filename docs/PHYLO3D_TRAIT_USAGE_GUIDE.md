@@ -11,6 +11,10 @@
 
 `Phylo3D-Trait` 是一个 Python package，用于生成类似 eLife Figure 5 风格的三维系统发育可视化。
 
+<p align="center">
+  <img src="assets/preview_eulipotyphla.png" alt="Phylo3D-Trait 3D Visualization" width="95%">
+</p>
+
 输入：
 
 1. 一棵系统发育树：
