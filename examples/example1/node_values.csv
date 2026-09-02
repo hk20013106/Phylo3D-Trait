@@ -1,0 +1,8 @@
+node_id,label,node_type,descendant_count,descendant_tips,trait
+A,A,tip,1,A,1.5
+B,B,tip,1,B,3.0
+C,C,tip,1,C,4.5
+D,D,tip,1,D,5.0
+clade:17f5f129f4c7,Root,root,4,A;B;C;D,1.0
+clade:b17c8419f544,Ancestor_AB,internal,2,A;B,2.0
+clade:6a5756530335,Ancestor_CD,internal,2,C;D,4.0

@@ -1,0 +1,12 @@
+node_id,label,node_type,descendant_count,descendant_tips,trait
+A,A,tip,1,A,1.5
+B,B,tip,1,B,2.5
+C,C,tip,1,C,3.0
+D,D,tip,1,D,5.0
+E,E,tip,1,E,2.0
+F,F,tip,1,F,4.5
+clade:4a7d44857cc6,clade:4a7d44857cc6,root,6,A;B;C;D;E;F,1.0
+clade:17f5f129f4c7,clade:17f5f129f4c7,internal,4,A;B;C;D,2.0
+clade:b17c8419f544,clade:b17c8419f544,internal,2,A;B,1.8
+clade:6a5756530335,clade:6a5756530335,internal,2,C;D,3.5
+clade:c36d41ba47f5,clade:c36d41ba47f5,internal,2,E;F,3.0
