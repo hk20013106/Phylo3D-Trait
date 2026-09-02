@@ -14,7 +14,7 @@ from phylo3d_trait.tree import annotate_tree, compute_stable_node_id, parse_tree
 from phylo3d_trait.renderer import build_figure, build_plot_data
 from phylo3d_trait.template import generate_template_csv
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "AnnotatedNode",
