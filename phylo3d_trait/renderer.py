@@ -383,24 +383,27 @@ def build_figure(
                 )
             )
 
-    # 4. Build Terminal Tips text trace (mode="text", no circle markers)
+    # 4. Build Terminal Tips text trace (aligned on top-front reference line: y = global_trait_max, z = 0.0)
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
     if tip_nodes and show_tip_labels:
+        label_x = [n.x for n in tip_nodes]
+        label_y = [plot_data.trait_max for _ in tip_nodes]
+        label_z = [0.0 for _ in tip_nodes]
         fig.add_trace(
             go.Scatter3d(
-                x=[n.x for n in tip_nodes],
-                y=[n.y for n in tip_nodes],  # Y is TRAIT
-                z=[n.z for n in tip_nodes],  # Z is TIME
+                x=label_x,
+                y=label_y,  # Aligned uniformly at global maximum trait value
+                z=label_z,  # Aligned at Time before present = 0.0
                 mode="text",
                 text=[n.label for n in tip_nodes],
                 textposition="top center",
                 textfont=dict(size=11, color="#222222"),
-                customdata=[[n.label, n.node_id] for n in tip_nodes],
+                customdata=[[n.label, n.node_id, n.trait] for n in tip_nodes],
                 hovertemplate=(
                     "<b>Taxon: %{customdata[0]}</b><br>"
                     "Node ID: %{customdata[1]}<br>"
-                    "Trait value (Y / Height): %{y:.4f}<br>"
-                    "Time before present (Z): %{z:.4f}<br>"
+                    "Tip Trait value: %{customdata[2]:.4f}<br>"
+                    "Time before present: 0.0000<br>"
                     "Tree Layout (X): %{x:.2f}<extra></extra>"
                 ),
                 name="Terminal Taxa",

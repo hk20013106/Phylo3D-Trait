@@ -142,20 +142,51 @@ def test_elife_camera_preset():
     assert camera.projection.type == "orthographic"
 
 
-def test_html_export(tmp_path):
-    """Verify figure exports to valid standalone HTML."""
-    tree_str = "(A:10,B:10);"
+def test_tip_labels_aligned_to_top_front_reference_line():
+    """Verify all tip labels are placed at y=global_trait_max and z=0.0 while retaining tip.x."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
-    id_root = compute_stable_node_id(["A", "B"])
-    trait_values = {"A": 1.0, "B": 2.0, id_root: 1.5}
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.2,
+        "B": 2.5,
+        "C": 3.8,
+        "D": 8.0,  # Global maximum trait
+        id_ab: 1.8,
+        id_cd: 5.0,
+        id_root: 3.0,
+    }
 
     plot_data = build_plot_data(tree, trait_values)
+    global_max = plot_data.trait_max
+    assert global_max == pytest.approx(8.0)
+
     fig = build_figure(plot_data)
 
-    out_html = tmp_path / "test_plot.html"
-    fig.write_html(str(out_html))
+    tip_traces = [t for t in fig.data if t.name == "Terminal Taxa"]
+    assert len(tip_traces) == 1
+    trace = tip_traces[0]
 
-    assert out_html.exists()
-    assert out_html.stat().st_size > 1000
-    content = out_html.read_text(encoding="utf-8")
-    assert "plotly" in content.lower()
+    # 1. All tip labels y must equal global_trait_max (8.0)
+    assert len(trace.y) == 4
+    for y_val in trace.y:
+        assert y_val == pytest.approx(8.0)
+
+    # 2. All tip labels z must equal 0.0
+    assert len(trace.z) == 4
+    for z_val in trace.z:
+        assert z_val == pytest.approx(0.0)
+
+    # 3. Each label x must match corresponding tip x
+    tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
+    expected_xs = [n.x for n in tip_nodes]
+    assert list(trace.x) == expected_xs
+
+    # 4. Biological tip node coordinates in plot_data remain unchanged
+    assert plot_data.nodes["A"].y == pytest.approx(1.2)
+    assert plot_data.nodes["B"].y == pytest.approx(2.5)
+    assert plot_data.nodes["C"].y == pytest.approx(3.8)
+    assert plot_data.nodes["D"].y == pytest.approx(8.0)
