@@ -19,9 +19,9 @@ A 6-taxon nested phylogeny demonstrating rectangular 3D phylogram rendering with
 python -m phylo3d_trait.cli plot \
   --tree examples/example2/tree.nwk \
   --values examples/example2/node_values.csv \
-  --output results/example2/tree3d.html \
+  --output examples/example2/tree3d.html \
   --baseline-y 0
 ```
 
 ## Output
-- `results/example2/tree3d.html`
+- `examples/example2/tree3d.html`

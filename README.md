@@ -77,14 +77,11 @@ $$\text{Node ID} = \text{clade}:\text{SHA256}(\text{sorted}(\text{descendant\_ti
 
 ### Recommended Project Layout (Suggested)
 ```text
-data/
-  my_project/
-    tree.nwk                 # Newick or Nexus tree file
-    node_values_template.csv # Generated template
-    node_values.csv          # Filled trait values table
-results/
-  my_project/
-    tree3d.html              # Interactive 3D visualization
+my_project/
+  tree.nwk                 # Newick or Nexus tree file
+  node_values_template.csv # Generated template
+  node_values.csv          # Filled trait values table
+  tree3d.html              # Interactive 3D visualization
 ```
 
 ### Step 1: Generate Node Values Template
@@ -92,8 +89,8 @@ Extract all tip names and deterministic ancestral clade IDs from your tree into 
 
 ```bash
 python -m phylo3d_trait.cli template-values \
-  --tree data/my_project/tree.nwk \
-  --output data/my_project/node_values_template.csv
+  --tree path/to/tree.nwk \
+  --output path/to/node_values_template.csv
 ```
 
 ### Step 2: Fill in Trait Values
@@ -118,9 +115,9 @@ Generate the standalone interactive 3D HTML visualization:
 
 ```bash
 python -m phylo3d_trait.cli plot \
-  --tree data/my_project/tree.nwk \
-  --values data/my_project/node_values.csv \
-  --output results/my_project/tree3d.html
+  --tree path/to/tree.nwk \
+  --values path/to/node_values.csv \
+  --output path/to/tree3d.html
 ```
 
 ---
@@ -150,7 +147,8 @@ python -m phylo3d_trait.cli plot -h
 - `--background`: Background styling (`white` [default] or `transparent`).
 - `--segments, -s`: Linear subdivisions per branch segment (default: `10`).
 - `--baseline-y`: Custom baseline Y trait plane height (default: minimum observed trait).
-- `--trait-display-range START END`: Optional linear rescaling of raw trait values `[min, max]` to target display coordinates `[START, END]` (e.g. `--trait-display-range 13 5` for reverse height mapping). Raw scientific traits remain unaltered and are displayed in hover tooltips.
+- `--baseline-raw-value`: Custom numeric trait value displayed at baseline Y on Y axis and colorbar (default: `raw_trait_max + 2` in reverse transform).
+- `--trait-display-range START END`: Optional linear rescaling of raw trait values `[min, max]` to target display coordinates `[START, END]` (e.g. `--trait-display-range 13 5` for reverse height mapping). Raw scientific traits remain unaltered and are displayed on axis/colorbar ticks and hover tooltips.
 - `--opacity`: Opacity of curtain meshes (default: `1.0` for solid depth buffering).
 - `--branch-width`: Line width for 3D branch top outlines (default: `1.0`).
 - `--show-node-markers`: Render diamond markers at ancestral nodes (default: `False`).
@@ -166,8 +164,8 @@ python -m phylo3d_trait.cli plot -h
 from phylo3d_trait import build_figure, build_plot_data, load_trait_values, parse_tree
 
 # 1. Parse tree and load trait table
-tree = parse_tree("data/my_project/tree.nwk")
-traits = load_trait_values("data/my_project/node_values.csv")
+tree = parse_tree("path/to/tree.nwk")
+traits = load_trait_values("path/to/node_values.csv")
 
 # 2. Build 3D plot data model
 plot_data = build_plot_data(
@@ -185,15 +183,15 @@ fig = build_figure(
 )
 
 # 4. Save to standalone HTML
-fig.write_html("results/my_project/tree3d.html", include_plotlyjs="cdn")
+fig.write_html("path/to/tree3d.html", include_plotlyjs="cdn")
 ```
 
 ---
 
 ## 8. Built-in Examples
 
-- **Example 1** ([`examples/example1/`](file:///h:/Work/Paper_work/101_hemoglobin/examples/example1/)): 4-taxon dated tree with standard $Y=\text{Trait}=\text{Color}$ mapping and default baseline. Output: [`results/example1/tree3d.html`](file:///h:/Work/Paper_work/101_hemoglobin/results/example1/tree3d.html).
-- **Example 2** ([`examples/example2/`](file:///h:/Work/Paper_work/101_hemoglobin/examples/example2/)): 6-taxon nested phylogeny with `--baseline-y 0` ensuring positive curtain elevation at all ancestral nodes. Output: [`results/example2/tree3d.html`](file:///h:/Work/Paper_work/101_hemoglobin/results/example2/tree3d.html).
+- **Example 1** ([`examples/example1/`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example1/)): 4-taxon dated tree with standard $Y=\text{Trait}=\text{Color}$ mapping and default baseline. Output: [`examples/example1/tree3d.html`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example1/tree3d.html).
+- **Example 2** ([`examples/example2/`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example2/)): 6-taxon nested phylogeny with `--baseline-y 0` ensuring positive curtain elevation at all ancestral nodes. Output: [`examples/example2/tree3d.html`](file:///h:/Work/Paper_work/101_hemoglobin/phylo3d_trait/examples/example2/tree3d.html).
 
 ---
 

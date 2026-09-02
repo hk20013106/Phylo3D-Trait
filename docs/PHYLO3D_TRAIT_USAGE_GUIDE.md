@@ -91,29 +91,23 @@ Phylo3D-Trait/
 │   ├── example1/
 │   │   ├── tree.nwk
 │   │   ├── node_values.csv
+│   │   ├── tree3d.html
 │   │   └── README.md
 │   │
 │   └── example2/
 │       ├── tree.nwk
 │       ├── node_values.csv
+│       ├── tree3d.html
 │       └── README.md
-│
-├── data/
-│   └── .gitkeep
-│
-├── results/
-│   ├── example1/
-│   │   └── tree3d.html
-│   └── example2/
-│       └── tree3d.html
 │
 └── tests/
     ├── test_cli.py
-    ├── test_tree.py
-    ├── test_renderer.py
     ├── test_curtain_mesh.py
     ├── test_rectangular_phylogram.py
-    └── test_stable_ids.py
+    ├── test_renderer.py
+    ├── test_stable_ids.py
+    ├── test_trait_rescaling.py
+    └── test_tree.py
 ```
 
 模块职责：
@@ -336,19 +330,15 @@ phylo3d-trait --help
 # 11. 真实数据推荐目录
 
 ```text
-data/
-  my_project/
-    tree.nwk
-    node_values_template.csv
-    node_values.csv
-    README.md
-
-results/
-  my_project/
-    tree3d.html
+my_project/
+  tree.nwk
+  node_values_template.csv
+  node_values.csv
+  tree3d.html
+  README.md
 ```
 
-这些路径只是推荐，不是硬编码要求。
+这些路径只是推荐，不是硬编码要求。用户可将文件放置在任何科研分析目录。
 
 ---
 
@@ -474,8 +464,8 @@ Internal node identity 基于 descendant-tip set 的确定性哈希。
 
 ```bash
 python -m phylo3d_trait.cli template-values \
-  --tree data/my_project/tree.nwk \
-  --output data/my_project/node_values_template.csv
+  --tree path/to/my_project/tree.nwk \
+  --output path/to/my_project/node_values_template.csv
 ```
 
 生成表结构如下（由 `template-values` 自动生成）：
@@ -521,7 +511,7 @@ clade:17f5f129f4c7,clade:17f5f129f4c7,root,4,Species_A;Species_B;Species_C;Speci
 保存为：
 
 ```text
-data/my_project/node_values.csv
+path/to/my_project/node_values.csv
 ```
 
 ---
@@ -548,15 +538,15 @@ data/my_project/node_values.csv
 
 ```bash
 python -m phylo3d_trait.cli plot \
-  --tree data/my_project/tree.nwk \
-  --values data/my_project/node_values.csv \
-  --output results/my_project/tree3d.html
+  --tree path/to/my_project/tree.nwk \
+  --values path/to/my_project/node_values.csv \
+  --output path/to/my_project/tree3d.html
 ```
 
 然后打开：
 
 ```text
-results/my_project/tree3d.html
+path/to/my_project/tree3d.html
 ```
 
 ---
@@ -625,12 +615,12 @@ REPORT
 
 例如用户说：
 
-> “用 `data/project1/` 里的数据画三维树。”
+> “用 `path/to/project1/` 里的数据画三维树。”
 
 AI 应：
 
 1. 阅读本说明书。
-2. 检查 `data/project1/`。
+2. 检查 `path/to/project1/`。
 3. 找到 tree 和 Trait 文件。
 4. 检查 Trait 表是否已经使用当前 tree 的 stable clade IDs。
 5. 如果没有，先运行 `template-values`。
@@ -658,8 +648,8 @@ from phylo3d_trait import (
     build_figure,
 )
 
-tree = parse_tree("data/my_project/tree.nwk")
-traits = load_trait_values("data/my_project/node_values.csv")
+tree = parse_tree("path/to/my_project/tree.nwk")
+traits = load_trait_values("path/to/my_project/node_values.csv")
 
 plot_data = build_plot_data(tree, traits)
 
@@ -669,7 +659,7 @@ fig = build_figure(
     background="white",
 )
 
-fig.write_html("results/my_project/tree3d.html")
+fig.write_html("path/to/my_project/tree3d.html")
 ```
 
 **注意**：函数名必须以当前 `__init__.py` 和实际代码为准。AI 不应凭记忆假设 API。
@@ -836,7 +826,7 @@ Reference:
 例如：
 
 ```text
-data/my_project/README.md
+path/to/my_project/README.md
 ```
 
 推荐内容：
@@ -1019,16 +1009,16 @@ Validation:
 ```bash
 # 步骤 1: 提取模板
 python -m phylo3d_trait.cli template-values \
-  --tree data/demo/tree.nwk \
-  --output data/demo/template.csv
+  --tree path/to/demo/tree.nwk \
+  --output path/to/demo/template.csv
 
-# 步骤 2: 填入 Trait 并保存为 data/demo/node_values.csv
+# 步骤 2: 填入 Trait 并保存为 path/to/demo/node_values.csv
 
 # 步骤 3: 绘制 3D HTML
 python -m phylo3d_trait.cli plot \
-  --tree data/demo/tree.nwk \
-  --values data/demo/node_values.csv \
-  --output results/demo/tree3d.html
+  --tree path/to/demo/tree.nwk \
+  --values path/to/demo/node_values.csv \
+  --output path/to/demo/tree3d.html
 ```
 
 ---

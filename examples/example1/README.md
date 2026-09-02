@@ -18,8 +18,8 @@ A simple 4-taxon dated tree demonstrating standard 3D rectangular phylogram rend
 python -m phylo3d_trait.cli plot \
   --tree examples/example1/tree.nwk \
   --values examples/example1/node_values.csv \
-  --output results/example1/tree3d.html
+  --output examples/example1/tree3d.html
 ```
 
 ## Output
-- `results/example1/tree3d.html`
+- `examples/example1/tree3d.html`
