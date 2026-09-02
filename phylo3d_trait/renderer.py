@@ -181,6 +181,55 @@ def _build_branch_curtains_geometry(
     return mesh_x, mesh_y, mesh_z, mesh_i, mesh_j, mesh_k, mesh_intensity
 
 
+def _generate_rescaled_ticks(
+    plot_data: PlotData,
+    baseline_y: Optional[float] = None,
+    num_ticks: int = 5,
+) -> Tuple[List[float], List[str]]:
+    """Generate (tickvals, ticktext) in display space labeled with raw scientific trait values.
+
+    Args:
+        plot_data: PlotData container with raw trait bounds and trait_display_range.
+        baseline_y: Custom baseline Y plane height.
+        num_ticks: Number of trait tick steps across the display domain (default: 5).
+
+    Returns:
+        Tuple of (tickvals, ticktext) for Plotly axis and colorbar.
+    """
+    if plot_data.trait_display_range is None:
+        return [], []
+
+    d_start, d_end = plot_data.trait_display_range
+    d_min = min(d_start, d_end)
+    d_max = max(d_start, d_end)
+
+    if d_max == d_min:
+        disp_ticks = [d_min]
+    else:
+        step = (d_max - d_min) / float(num_ticks - 1)
+        disp_ticks = [d_min + i * step for i in range(num_ticks)]
+
+    tickvals: List[float] = []
+    ticktext: List[str] = []
+
+    eff_baseline = baseline_y if baseline_y is not None else plot_data.baseline_y
+    # If baseline is explicitly below the display trait domain, label it as "baseline"
+    if eff_baseline is not None and eff_baseline < d_min - 1e-4:
+        tickvals.append(float(eff_baseline))
+        ticktext.append("baseline")
+
+    for d_val in disp_ticks:
+        raw_val = plot_data.display_to_raw(d_val)
+        tickvals.append(round(d_val, 6))
+        if abs(raw_val - round(raw_val)) < 1e-6:
+            label = f"{int(round(raw_val))}"
+        else:
+            label = f"{raw_val:.4f}".rstrip("0").rstrip(".")
+        ticktext.append(label)
+
+    return tickvals, ticktext
+
+
 def build_figure(
     plot_data: PlotData,
     title: Optional[str] = None,
@@ -238,8 +287,13 @@ def build_figure(
 
     # 1. Build continuous curtain mesh surfaces (Mesh3d)
     is_transformed = plot_data.trait_display_range is not None
-    colorbar_title = "Display Trait" if is_transformed else "Trait Value"
-    y_axis_title = "Trait value (display-transformed)" if is_transformed else "Trait value"
+    colorbar_title = "Trait Value"
+    y_axis_title = "Trait value"
+    rescaled_tickvals, rescaled_ticktext = _generate_rescaled_ticks(
+        plot_data=plot_data,
+        baseline_y=eff_baseline_y,
+        num_ticks=5,
+    )
 
     if show_mesh and plot_data.segments:
         (
@@ -256,6 +310,17 @@ def build_figure(
         )
 
         if mesh_x and mesh_i:
+            cb_dict = dict(
+                title=dict(text=colorbar_title, side="top", font=dict(size=12, color="#333333")),
+                thickness=18,
+                len=0.75,
+                x=1.02,
+            )
+            if is_transformed and rescaled_tickvals:
+                cb_dict["tickmode"] = "array"
+                cb_dict["tickvals"] = rescaled_tickvals
+                cb_dict["ticktext"] = rescaled_ticktext
+
             fig.add_trace(
                 go.Mesh3d(
                     x=mesh_x,
@@ -279,12 +344,7 @@ def build_figure(
                     hoverinfo="none",
                     name="Branch Curtains",
                     showscale=True,
-                    colorbar=dict(
-                        title=dict(text=colorbar_title, side="top", font=dict(size=12, color="#333333")),
-                        thickness=18,
-                        len=0.75,
-                        x=1.02,
-                    ),
+                    colorbar=cb_dict,
                 )
             )
 
@@ -377,7 +437,7 @@ def build_figure(
                     "<b>Node: %{customdata[0]}</b><br>"
                     "Type: %{customdata[1]}<br>"
                     "Raw Trait: %{customdata[2]:.4f}<br>"
-                    "Display Trait (Y / Height): %{customdata[3]:.4f}<br>"
+                    "Display Trait (internal Y): %{customdata[3]:.4f}<br>"
                     "Time before present (Z): %{z:.4f}<br>"
                     "Tree Layout (X): %{x:.2f}<br>"
                     "%{customdata[4]}<extra></extra>"
@@ -434,7 +494,7 @@ def build_figure(
                 "<b>Taxon: %{customdata[0]}</b><br>"
                 "Node ID: %{customdata[1]}<br>"
                 "Raw Trait: %{customdata[2]:.4f}<br>"
-                "Display Trait (Y): %{customdata[3]:.4f}<br>"
+                "Display Trait (internal Y): %{customdata[3]:.4f}<br>"
                 "Time before present: 0.0000<br>"
                 "Tree Layout (X): %{x:.2f}<extra></extra>"
             )
@@ -484,6 +544,17 @@ def build_figure(
     else:
         camera_cfg = CAMERA_PRESETS.get(camera_preset.lower(), CAMERA_PRESETS["elife"])
 
+    yaxis_cfg = dict(
+        title=dict(text=y_axis_title, font=dict(size=13, color="#333333")),
+        showbackground=False,
+        gridcolor="#e5e5e5",
+        zerolinecolor="#d0d0d0",
+    )
+    if is_transformed and rescaled_tickvals:
+        yaxis_cfg["tickmode"] = "array"
+        yaxis_cfg["tickvals"] = rescaled_tickvals
+        yaxis_cfg["ticktext"] = rescaled_ticktext
+
     # Scene and Camera Configuration
     fig.update_layout(
         title=dict(
@@ -501,12 +572,7 @@ def build_figure(
                 gridcolor="#e5e5e5",
                 zerolinecolor="#d0d0d0",
             ),
-            yaxis=dict(
-                title=dict(text=y_axis_title, font=dict(size=13, color="#333333")),
-                showbackground=False,
-                gridcolor="#e5e5e5",
-                zerolinecolor="#d0d0d0",
-            ),
+            yaxis=yaxis_cfg,
             zaxis=dict(
                 title=dict(text="Time before present", font=dict(size=13, color="#333333")),
                 showbackground=False,

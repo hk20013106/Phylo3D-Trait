@@ -4,7 +4,7 @@ import pytest
 import plotly.graph_objects as go
 
 from phylo3d_trait.models import PlotData
-from phylo3d_trait.renderer import build_figure, build_plot_data
+from phylo3d_trait.renderer import build_figure, build_plot_data, _generate_rescaled_ticks
 from phylo3d_trait.tree import annotate_tree, compute_stable_node_id, parse_tree
 
 
@@ -35,8 +35,8 @@ def test_default_no_transform_display_trait_equals_raw_trait():
         assert node.trait == pytest.approx(trait_values[nid])
 
 
-def test_linear_reverse_trait_rescaling_formula():
-    """Verify linear mapping [0, 10] -> [13, 5]: display = 13 - 0.8 * raw."""
+def test_linear_reverse_trait_rescaling_formula_and_roundtrip():
+    """Verify linear mapping [0, 10] -> [13, 5]: display = 13 - 0.8 * raw and inverse transform."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -87,11 +87,37 @@ def test_linear_reverse_trait_rescaling_formula():
     assert plot_data.nodes["D"].display_trait == pytest.approx(5.0)
     assert plot_data.nodes["D"].y == pytest.approx(5.0)
 
-    # Linearity check for all nodes
+    # Linearity & Round-trip check
     for node in plot_data.nodes.values():
         expected_disp = 13.0 - 0.8 * node.raw_trait
         assert node.display_trait == pytest.approx(expected_disp)
         assert node.y == pytest.approx(expected_disp)
+        # Inverse transform check
+        assert plot_data.display_to_raw(node.display_trait) == pytest.approx(node.raw_trait)
+        assert plot_data.raw_to_display(node.raw_trait) == pytest.approx(node.display_trait)
+
+
+def test_inverse_transform_arbitrary_points():
+    """Verify display_to_raw accurately inverts any display coordinate."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+
+    # Raw range [5.5269, 9.8247]
+    trait_values = {
+        "A": 5.5269,
+        "B": 9.8247,
+        id_root: 7.6758,
+    }
+
+    plot_data = build_plot_data(tree, trait_values, trait_display_range=(13.0, 5.0))
+
+    # display 13.0 -> raw_min 5.5269
+    assert plot_data.display_to_raw(13.0) == pytest.approx(5.5269)
+    # display 5.0 -> raw_max 9.8247
+    assert plot_data.display_to_raw(5.0) == pytest.approx(9.8247)
+    # display 9.0 (midpoint) -> raw midpoint
+    assert plot_data.display_to_raw(9.0) == pytest.approx(7.6758)
 
 
 def test_source_range_from_nodes_only_not_baseline():
@@ -146,6 +172,50 @@ def test_source_range_from_nodes_only_not_baseline():
         assert intensity_val == pytest.approx(y_val)
 
 
+def test_axis_and_colorbar_presentation_labels():
+    """Verify Y-axis and Colorbar show real raw Trait labels, not internal display coordinates."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+
+    # Raw range: [5.5269, 9.8247]
+    trait_values = {
+        "A": 5.5269,
+        "B": 9.8247,
+        id_root: 7.6758,
+    }
+
+    plot_data = build_plot_data(
+        tree,
+        trait_values,
+        baseline_y=0.0,
+        trait_display_range=(13.0, 5.0),
+    )
+
+    fig = build_figure(plot_data, baseline_y=0.0)
+
+    # 1. Y Axis checks
+    yaxis = fig.layout.scene.yaxis
+    assert yaxis.title.text == "Trait value"
+    assert yaxis.tickmode == "array"
+    # tickvals are in display space [0, 5, 7, 9, 11, 13]
+    assert list(yaxis.tickvals) == [0.0, 5.0, 7.0, 9.0, 11.0, 13.0]
+    # ticktext are in raw scientific space
+    assert yaxis.ticktext[0] == "baseline"
+    assert yaxis.ticktext[1] == "9.8247"  # display Y=5.0 -> raw 9.8247
+    assert yaxis.ticktext[5] == "5.5269"  # display Y=13.0 -> raw 5.5269
+
+    # 2. Colorbar checks
+    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+    cb = mesh.colorbar
+    assert cb.title.text == "Trait Value"
+    assert cb.tickmode == "array"
+    assert list(cb.tickvals) == [0.0, 5.0, 7.0, 9.0, 11.0, 13.0]
+    assert cb.ticktext[0] == "baseline"
+    assert cb.ticktext[1] == "9.8247"
+    assert cb.ticktext[5] == "5.5269"
+
+
 def test_hover_text_shows_both_raw_and_display_trait():
     """Verify hover text clearly displays both Raw Trait and Display Trait."""
     tree_str = "(A:10,B:10);"
@@ -169,7 +239,7 @@ def test_hover_text_shows_both_raw_and_display_trait():
     # Tip trace
     tip_trace = [t for t in fig.data if t.name == "Terminal Taxa"][0]
     assert "Raw Trait:" in tip_trace.hovertemplate
-    assert "Display Trait (Y):" in tip_trace.hovertemplate
+    assert "Display Trait (internal Y):" in tip_trace.hovertemplate
 
     # Customdata has [label, node_id, raw_trait, display_trait]
     for row in tip_trace.customdata:
@@ -184,7 +254,7 @@ def test_hover_text_shows_both_raw_and_display_trait():
     # Internal node trace
     internal_trace = [t for t in fig.data if t.name == "Internal Nodes"][0]
     assert "Raw Trait:" in internal_trace.hovertemplate
-    assert "Display Trait (Y / Height):" in internal_trace.hovertemplate
+    assert "Display Trait (internal Y):" in internal_trace.hovertemplate
     for row in internal_trace.customdata:
         nid, ntype, raw_t, disp_t, desc = row
         assert raw_t == pytest.approx(5.0)

@@ -244,6 +244,8 @@ def test_cli_trait_display_range_end_to_end(tmp_path: Path):
     assert '"cmin":0.0' in content or '"cmin": 0.0' in content
     assert '"cmax":13.0' in content or '"cmax": 13.0' in content
     assert "Raw Trait:" in content
-    assert "Display Trait (Y):" in content
-    assert "Display Trait" in content
+    assert "Display Trait (internal Y):" in content
+    assert "Trait Value" in content
+    assert "baseline" in content
+
 

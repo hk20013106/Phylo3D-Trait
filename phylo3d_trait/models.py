@@ -160,3 +160,22 @@ class PlotData:
         if self.baseline_y is None:
             self.baseline_y = self.trait_min
 
+    def raw_to_display(self, raw_val: float) -> float:
+        """Convert raw scientific trait value to display coordinate Y."""
+        if self.trait_display_range is None:
+            return raw_val
+        t_start, t_end = self.trait_display_range
+        if self.raw_trait_max == self.raw_trait_min:
+            return t_start
+        return t_start + (raw_val - self.raw_trait_min) * (t_end - t_start) / (self.raw_trait_max - self.raw_trait_min)
+
+    def display_to_raw(self, display_val: float) -> float:
+        """Convert display coordinate Y back to scientific raw trait value (inverse transform)."""
+        if self.trait_display_range is None:
+            return display_val
+        t_start, t_end = self.trait_display_range
+        if t_end == t_start:
+            return self.raw_trait_min
+        return self.raw_trait_min + (display_val - t_start) * (self.raw_trait_max - self.raw_trait_min) / (t_end - t_start)
+
+
