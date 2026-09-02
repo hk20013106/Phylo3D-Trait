@@ -219,3 +219,31 @@ def test_example2_cli_end_to_end(tmp_path: Path):
     assert '"cmax":5.0' in content or '"cmax": 5.0' in content
     assert "Branch Curtains" in content
     assert "Terminal Taxa" in content
+
+
+def test_cli_trait_display_range_end_to_end(tmp_path: Path):
+    """Verify full CLI execution with --trait-display-range 13 5 and --baseline-y 0."""
+    repo_root = Path(__file__).parent.parent
+    tree_file = repo_root / "examples" / "example2" / "tree.nwk"
+    values_file = repo_root / "examples" / "example2" / "node_values.csv"
+    out_html = tmp_path / "example2_rescaled.html"
+
+    ret = main([
+        "plot",
+        "--tree", str(tree_file),
+        "--values", str(values_file),
+        "--output", str(out_html),
+        "--baseline-y", "0",
+        "--trait-display-range", "13", "5",
+    ])
+    assert ret == 0
+    assert out_html.exists()
+    assert out_html.stat().st_size > 5000
+
+    content = out_html.read_text(encoding="utf-8")
+    assert '"cmin":0.0' in content or '"cmin": 0.0' in content
+    assert '"cmax":13.0' in content or '"cmax": 13.0' in content
+    assert "Raw Trait:" in content
+    assert "Display Trait (Y):" in content
+    assert "Display Trait" in content
+

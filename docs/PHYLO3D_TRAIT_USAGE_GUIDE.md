@@ -702,6 +702,7 @@ python -m phylo3d_trait.cli plot --help
 | `--opacity` | float (0.0 - 1.0) | `1.0` | 幕帘曲面不透明度（默认 1.0 启用原生 WebGL 深度遮挡） |
 | `--branch-width` | float | `1.0` | 分支顶缘轮廓线线宽 |
 | `--baseline-y` | float | `trait_min` | 自定义基准平面 $Y$ 高度 |
+| `--trait-display-range` | float float (例如 `13 5`) | `None` | 线性显示重标定（将原始 Trait `[min, max]` 线性映射至 `[START, END]` 显示空间；不修改科研原始数据，hover 保留 raw 与 display 两套数值） |
 | `--segments, -s` | int | `10` | 每一个分支段内的线性插值步数 |
 | `--show-node-markers` | flag | `False` | 是否在内部祖先节点处渲染菱形 marker |
 | `--no-mesh` | flag | `False` | 是否关闭连续垂直幕帘曲面 |

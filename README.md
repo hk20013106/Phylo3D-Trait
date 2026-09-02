@@ -150,6 +150,7 @@ python -m phylo3d_trait.cli plot -h
 - `--background`: Background styling (`white` [default] or `transparent`).
 - `--segments, -s`: Linear subdivisions per branch segment (default: `10`).
 - `--baseline-y`: Custom baseline Y trait plane height (default: minimum observed trait).
+- `--trait-display-range START END`: Optional linear rescaling of raw trait values `[min, max]` to target display coordinates `[START, END]` (e.g. `--trait-display-range 13 5` for reverse height mapping). Raw scientific traits remain unaltered and are displayed in hover tooltips.
 - `--opacity`: Opacity of curtain meshes (default: `1.0` for solid depth buffering).
 - `--branch-width`: Line width for 3D branch top outlines (default: `1.0`).
 - `--show-node-markers`: Render diamond markers at ancestral nodes (default: `False`).

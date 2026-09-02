@@ -55,6 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--baseline-y", type=float, default=None, help="Custom baseline Y trait plane height"
     )
     plot_parser.add_argument(
+        "--trait-display-range", nargs=2, type=float, default=None, metavar=("START", "END"),
+        help="Linearly remap raw trait values [min, max] to custom display range [START, END] (e.g. 13 5)"
+    )
+    plot_parser.add_argument(
         "--opacity", type=float, default=1.0, help="Opacity for curtain meshes (0.0 - 1.0, default: 1.0)"
     )
     plot_parser.add_argument(
@@ -120,6 +124,7 @@ def run_plot(args: argparse.Namespace) -> int:
             colorscale=args.colorscale,
             title=args.title if args.title else "3D Phylogenetic Tree with Continuous Trait Evolution",
             baseline_y=args.baseline_y,
+            trait_display_range=args.trait_display_range,
         )
         fig = build_figure(
             plot_data=plot_data,

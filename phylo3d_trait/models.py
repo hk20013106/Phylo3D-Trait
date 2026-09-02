@@ -24,10 +24,12 @@ class AnnotatedNode:
         label: Display name / label.
         is_tip: True if this is a leaf/tip taxon, False if internal ancestral node.
         x: Horizontal tree layout coordinate.
-        y: Trait value, mapped to height (Y axis).
+        y: Display Trait value, mapped to height (Y axis).
         z: Evolutionary time coordinate (Z axis, tips at 0, root at max age).
-        trait: Trait value (identical to y).
+        trait: Trait value mapped to Y (equal to display_trait).
         time: Evolutionary time / age before present (identical to z).
+        raw_trait: Original unscaled scientific trait value.
+        display_trait: Linearly rescaled trait value used for 3D Y coordinate and color.
         parent_id: Node ID of immediate parent, or None for root.
         children_ids: List of immediate children node IDs.
         branch_length: Evolutionary branch length from parent.
@@ -42,15 +44,21 @@ class AnnotatedNode:
     z: float
     trait: float
     time: float
+    raw_trait: Optional[float] = None
+    display_trait: Optional[float] = None
     parent_id: Optional[str] = None
     children_ids: List[str] = field(default_factory=list)
     branch_length: Optional[float] = None
     descendant_tips: List[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        # Enforce consistency: y is trait, z is time
-        if self.y != self.trait:
-            self.y = self.trait
+        if self.raw_trait is None:
+            self.raw_trait = self.trait
+        if self.display_trait is None:
+            self.display_trait = self.y
+        # Enforce consistency: y is display_trait, trait is display_trait, z is time
+        self.y = self.display_trait
+        self.trait = self.display_trait
         if self.z != self.time:
             self.z = self.time
 
@@ -63,15 +71,20 @@ class EdgeSegment:
         parent_id: Node ID of the parent node.
         child_id: Node ID of the child node.
         x0: Start X coordinate.
-        y0: Start Y coordinate (interpolated trait value).
+        y0: Start Y coordinate (interpolated display trait value).
         z0: Start Z coordinate (interpolated evolutionary time).
         x1: End X coordinate.
-        y1: End Y coordinate (interpolated trait value).
+        y1: End Y coordinate (interpolated display trait value).
         z1: End Z coordinate (interpolated evolutionary time).
-        trait0: Start trait value (equal to y0).
-        trait1: End trait value (equal to y1).
+        trait0: Start display trait value (equal to y0).
+        trait1: End display trait value (equal to y1).
+        raw_trait0: Start raw scientific trait value.
+        raw_trait1: End raw scientific trait value.
+        display_trait0: Start display trait value.
+        display_trait1: End display trait value.
         segment_index: Index of this segment along the edge (0 .. total_segments - 1).
         total_segments: Total number of subdivided segments along this branch.
+        segment_type: 'connector' (horizontal layout adjust) or 'lineage' (through-time evolution).
     """
 
     parent_id: str
@@ -84,15 +97,27 @@ class EdgeSegment:
     z1: float
     trait0: float
     trait1: float
+    raw_trait0: Optional[float] = None
+    raw_trait1: Optional[float] = None
+    display_trait0: Optional[float] = None
+    display_trait1: Optional[float] = None
     segment_index: int = 0
     total_segments: int = 1
     segment_type: str = "lineage"  # 'connector' or 'lineage'
 
     def __post_init__(self) -> None:
-        if self.y0 != self.trait0:
-            self.y0 = self.trait0
-        if self.y1 != self.trait1:
-            self.y1 = self.trait1
+        if self.raw_trait0 is None:
+            self.raw_trait0 = self.trait0
+        if self.raw_trait1 is None:
+            self.raw_trait1 = self.trait1
+        if self.display_trait0 is None:
+            self.display_trait0 = self.y0
+        if self.display_trait1 is None:
+            self.display_trait1 = self.y1
+        self.y0 = self.display_trait0
+        self.y1 = self.display_trait1
+        self.trait0 = self.display_trait0
+        self.trait1 = self.display_trait1
 
 
 @dataclass
@@ -102,14 +127,18 @@ class PlotData:
     Attributes:
         nodes: Dictionary mapping node_id to AnnotatedNode.
         segments: List of interpolated EdgeSegments connecting nodes.
-        trait_min: Global minimum trait value across all nodes.
-        trait_max: Global maximum trait value across all nodes.
+        trait_min: Global minimum display trait value across all nodes.
+        trait_max: Global maximum display trait value across all nodes.
         time_min: Minimum evolutionary time (0.0 at tips).
         time_max: Maximum evolutionary time (root divergence age).
         x_min: Minimum X layout coordinate.
         x_max: Maximum X layout coordinate.
+        raw_trait_min: Global minimum raw scientific trait value across all nodes.
+        raw_trait_max: Global maximum raw scientific trait value across all nodes.
+        trait_display_range: Optional target display range (start, end) used for linear remapping.
         colorscale: Plotly continuous colorscale name (e.g., 'Turbo').
         title: Title of the visualization.
+        baseline_y: Custom or default baseline Y plane height.
     """
 
     nodes: Dict[str, AnnotatedNode]
@@ -120,6 +149,9 @@ class PlotData:
     time_max: float
     x_min: float
     x_max: float
+    raw_trait_min: float = 0.0
+    raw_trait_max: float = 0.0
+    trait_display_range: Optional[tuple[float, float]] = None
     colorscale: str = "Turbo"
     title: str = "3D Phylogenetic Tree with Continuous Trait Evolution"
     baseline_y: Optional[float] = None

@@ -182,28 +182,30 @@ def compute_tree_layout(tree: Tree) -> Tuple[Dict[Clade, float], Dict[Clade, flo
 
 
 def annotate_tree(
-    tree: Tree,
+    tree_input: Union[str, Path, Tree],
     trait_values: Dict[str, float],
-    num_segments: int = 10,
+    num_segments: int = 8,
     colorscale: str = "Turbo",
     title: str = "3D Phylogenetic Tree with Continuous Trait Evolution",
+    trait_display_range: Optional[tuple[float, float]] = None,
 ) -> PlotData:
-    """Map trait values onto tree nodes, validate completeness, and interpolate branch segments.
+    """Parse tree, map orthogonal 3D coordinates, and interpolate trait continuous geometry.
 
-    Enforces:
-    - X = Tree layout
-    - Y = Trait value (Height)
-    - Z = Evolutionary time before present
-    - Linear continuous trait interpolation along branches
-    - Global trait normalization across all nodes and segments
-    - Loud failure on any missing tip or ancestral trait value
+    Coordinates:
+      - X = Horizontal layout (species positions across X)
+      - Y = Display Trait value (Height in 3D space, linearly rescaled if trait_display_range provided)
+      - Z = Evolutionary time before present
+      - Linear continuous trait interpolation along branches
+      - Global trait normalization across all nodes and segments
+      - Loud failure on any missing tip or ancestral trait value
 
     Args:
-        tree: Parsed Bio.Phylo Tree.
+        tree_input: Newick/Nexus file path, tree string, or parsed Bio.Phylo Tree.
         trait_values: Dictionary mapping node IDs (tip names or 'clade:<hash>') to numeric traits.
         num_segments: Number of linear interpolation segments per branch (default 10).
         colorscale: Plotly continuous colorscale name.
         title: Plot title.
+        trait_display_range: Optional (start, end) tuple for linear rescaling of trait values to Y display space.
 
     Returns:
         PlotData container with annotated nodes and subdivided edge segments.
@@ -211,6 +213,7 @@ def annotate_tree(
     Raises:
         ValueError: If any node lacks an explicit trait value or trait values are non-numeric.
     """
+    tree = parse_tree(tree_input) if not isinstance(tree_input, Tree) else tree_input
     x_coords, z_coords, node_ids, descendant_map = compute_tree_layout(tree)
 
     # Validate that all nodes have trait values provided
@@ -251,10 +254,23 @@ def annotate_tree(
             f"to generate the complete list of required node IDs."
         )
 
-    # Compute global trait and time boundaries
-    all_traits = list(resolved_traits.values())
-    trait_min = min(all_traits)
-    trait_max = max(all_traits)
+    # Compute raw trait boundaries (from supplied node traits only)
+    raw_traits = list(resolved_traits.values())
+    raw_trait_min = min(raw_traits)
+    raw_trait_max = max(raw_traits)
+
+    # Define linear rescaling function
+    if trait_display_range is not None:
+        target_start = float(trait_display_range[0])
+        target_end = float(trait_display_range[1])
+
+        def to_display_trait(raw: float) -> float:
+            if raw_trait_max == raw_trait_min:
+                return target_start
+            return target_start + (raw - raw_trait_min) * (target_end - target_start) / (raw_trait_max - raw_trait_min)
+    else:
+        def to_display_trait(raw: float) -> float:
+            return raw
 
     all_times = list(z_coords.values())
     time_min = min(all_times)
@@ -274,7 +290,8 @@ def annotate_tree(
     annotated_nodes: Dict[str, AnnotatedNode] = {}
     for clade in tree.find_clades():
         nid = node_ids[clade]
-        trait_val = resolved_traits[clade]
+        raw_val = resolved_traits[clade]
+        disp_val = to_display_trait(raw_val)
         time_val = z_coords[clade]
         x_val = x_coords[clade]
 
@@ -289,9 +306,11 @@ def annotate_tree(
             label=label,
             is_tip=clade.is_terminal(),
             x=x_val,
-            y=trait_val,  # Y is TRAIT
+            y=disp_val,  # Y is DISPLAY TRAIT
             z=time_val,   # Z is TIME
-            trait=trait_val,
+            trait=disp_val,
+            raw_trait=raw_val,
+            display_trait=disp_val,
             time=time_val,
             parent_id=parent_id,
             children_ids=children_ids,
@@ -310,6 +329,7 @@ def annotate_tree(
 
         xp, yp, zp = parent_node.x, parent_node.y, parent_node.z
         xc, yc, zc = child_node.x, child_node.y, child_node.z
+        raw_yp, raw_yc = parent_node.raw_trait, child_node.raw_trait
 
         # 1. Connector subsegment: (xp, yp, zp) -> (xc, yp, zp)
         # Horizontal along X layout at constant parent time Zp and constant parent trait Yp
@@ -330,6 +350,8 @@ def annotate_tree(
                 seg_y1 = yp
                 seg_z0 = zp
                 seg_z1 = zp
+                raw_y0 = raw_yp
+                raw_y1 = raw_yp
 
                 segment = EdgeSegment(
                     parent_id=parent_node.node_id,
@@ -342,6 +364,10 @@ def annotate_tree(
                     z1=seg_z1,
                     trait0=seg_y0,
                     trait1=seg_y1,
+                    raw_trait0=raw_y0,
+                    raw_trait1=raw_y1,
+                    display_trait0=seg_y0,
+                    display_trait1=seg_y1,
                     segment_index=current_idx,
                     total_segments=total_edge_segments,
                     segment_type="connector",
@@ -361,6 +387,8 @@ def annotate_tree(
             seg_y1 = yp + t1 * (yc - yp)
             seg_z0 = zp + t0 * (zc - zp)
             seg_z1 = zp + t1 * (zc - zp)
+            raw_y0 = raw_yp + t0 * (raw_yc - raw_yp)
+            raw_y1 = raw_yp + t1 * (raw_yc - raw_yp)
 
             segment = EdgeSegment(
                 parent_id=parent_node.node_id,
@@ -373,12 +401,20 @@ def annotate_tree(
                 z1=seg_z1,
                 trait0=seg_y0,
                 trait1=seg_y1,
+                raw_trait0=raw_y0,
+                raw_trait1=raw_y1,
+                display_trait0=seg_y0,
+                display_trait1=seg_y1,
                 segment_index=current_idx,
                 total_segments=total_edge_segments,
                 segment_type="lineage",
             )
             segments.append(segment)
             current_idx += 1
+
+    all_display_traits = [n.display_trait for n in annotated_nodes.values()]
+    trait_min = min(all_display_traits)
+    trait_max = max(all_display_traits)
 
     return PlotData(
         nodes=annotated_nodes,
@@ -389,6 +425,9 @@ def annotate_tree(
         time_max=time_max,
         x_min=x_min,
         x_max=x_max,
+        raw_trait_min=raw_trait_min,
+        raw_trait_max=raw_trait_max,
+        trait_display_range=tuple(trait_display_range) if trait_display_range is not None else None,
         colorscale=colorscale,
         title=title,
     )

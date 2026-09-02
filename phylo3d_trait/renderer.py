@@ -54,6 +54,7 @@ def build_plot_data(
     colorscale: str = "Turbo",
     title: str = "3D Phylogenetic Tree with Continuous Trait Evolution",
     baseline_y: Optional[float] = None,
+    trait_display_range: Optional[Tuple[float, float]] = None,
 ) -> PlotData:
     """Convenience helper to parse tree, annotate traits, and construct PlotData.
 
@@ -64,6 +65,7 @@ def build_plot_data(
         colorscale: Plotly colorscale name.
         title: Visualization title.
         baseline_y: Optional custom baseline Trait height for curtain meshes.
+        trait_display_range: Optional custom (start, end) target display range for linear remapping.
 
     Returns:
         PlotData object.
@@ -76,11 +78,12 @@ def build_plot_data(
         tree = parse_tree(tree_input)
 
     data = annotate_tree(
-        tree=tree,
+        tree_input=tree,
         trait_values=trait_values,
         num_segments=num_segments,
         colorscale=colorscale,
         title=title,
+        trait_display_range=trait_display_range,
     )
     if baseline_y is not None:
         data.baseline_y = baseline_y
@@ -233,9 +236,21 @@ def build_figure(
 
     fig = go.Figure()
 
-    # 1. Build continuous branch curtain surfaces (Mesh3d)
+    # 1. Build continuous curtain mesh surfaces (Mesh3d)
+    is_transformed = plot_data.trait_display_range is not None
+    colorbar_title = "Display Trait" if is_transformed else "Trait Value"
+    y_axis_title = "Trait value (display-transformed)" if is_transformed else "Trait value"
+
     if show_mesh and plot_data.segments:
-        mesh_x, mesh_y, mesh_z, mesh_i, mesh_j, mesh_k, mesh_intensity = _build_branch_curtains_geometry(
+        (
+            mesh_x,
+            mesh_y,
+            mesh_z,
+            mesh_i,
+            mesh_j,
+            mesh_k,
+            mesh_intensity,
+        ) = _build_branch_curtains_geometry(
             plot_data=plot_data,
             baseline_y=eff_baseline_y,
         )
@@ -265,7 +280,7 @@ def build_figure(
                     name="Branch Curtains",
                     showscale=True,
                     colorbar=dict(
-                        title=dict(text="Trait Value", side="top", font=dict(size=12, color="#333333")),
+                        title=dict(text=colorbar_title, side="top", font=dict(size=12, color="#333333")),
                         thickness=18,
                         len=0.75,
                         x=1.02,
@@ -347,6 +362,44 @@ def build_figure(
     if show_node_markers:
         internal_nodes = [n for n in plot_data.nodes.values() if not n.is_tip]
         if internal_nodes:
+            if is_transformed:
+                customdata_internal = [
+                    [
+                        n.node_id,
+                        "Ancestral Node",
+                        n.raw_trait,
+                        n.display_trait,
+                        f"Descendants ({len(n.descendant_tips)} tips): {', '.join(n.descendant_tips[:3])}{'...' if len(n.descendant_tips) > 3 else ''}",
+                    ]
+                    for n in internal_nodes
+                ]
+                hovertemplate_internal = (
+                    "<b>Node: %{customdata[0]}</b><br>"
+                    "Type: %{customdata[1]}<br>"
+                    "Raw Trait: %{customdata[2]:.4f}<br>"
+                    "Display Trait (Y / Height): %{customdata[3]:.4f}<br>"
+                    "Time before present (Z): %{z:.4f}<br>"
+                    "Tree Layout (X): %{x:.2f}<br>"
+                    "%{customdata[4]}<extra></extra>"
+                )
+            else:
+                customdata_internal = [
+                    [
+                        n.node_id,
+                        "Ancestral Node",
+                        f"Descendants ({len(n.descendant_tips)} tips): {', '.join(n.descendant_tips[:3])}{'...' if len(n.descendant_tips) > 3 else ''}",
+                    ]
+                    for n in internal_nodes
+                ]
+                hovertemplate_internal = (
+                    "<b>Node: %{customdata[0]}</b><br>"
+                    "Type: %{customdata[1]}<br>"
+                    "Trait value (Y / Height): %{y:.4f}<br>"
+                    "Time before present (Z): %{z:.4f}<br>"
+                    "Tree Layout (X): %{x:.2f}<br>"
+                    "%{customdata[2]}<extra></extra>"
+                )
+
             fig.add_trace(
                 go.Scatter3d(
                     x=[n.x for n in internal_nodes],
@@ -362,22 +415,8 @@ def build_figure(
                         symbol="diamond",
                         opacity=0.95,
                     ),
-                    customdata=[
-                        [
-                            n.node_id,
-                            "Ancestral Node",
-                            f"Descendants ({len(n.descendant_tips)} tips): {', '.join(n.descendant_tips[:3])}{'...' if len(n.descendant_tips) > 3 else ''}",
-                        ]
-                        for n in internal_nodes
-                    ],
-                    hovertemplate=(
-                        "<b>Node: %{customdata[0]}</b><br>"
-                        "Type: %{customdata[1]}<br>"
-                        "Trait value (Y / Height): %{y:.4f}<br>"
-                        "Time before present (Z): %{z:.4f}<br>"
-                        "Tree Layout (X): %{x:.2f}<br>"
-                        "%{customdata[2]}<extra></extra>"
-                    ),
+                    customdata=customdata_internal,
+                    hovertemplate=hovertemplate_internal,
                     name="Internal Nodes",
                     showlegend=False,
                 )
@@ -389,6 +428,26 @@ def build_figure(
         label_x = [n.x for n in tip_nodes]
         label_y = [plot_data.trait_max for _ in tip_nodes]
         label_z = [0.0 for _ in tip_nodes]
+        if is_transformed:
+            customdata_tip = [[n.label, n.node_id, n.raw_trait, n.display_trait] for n in tip_nodes]
+            hovertemplate_tip = (
+                "<b>Taxon: %{customdata[0]}</b><br>"
+                "Node ID: %{customdata[1]}<br>"
+                "Raw Trait: %{customdata[2]:.4f}<br>"
+                "Display Trait (Y): %{customdata[3]:.4f}<br>"
+                "Time before present: 0.0000<br>"
+                "Tree Layout (X): %{x:.2f}<extra></extra>"
+            )
+        else:
+            customdata_tip = [[n.label, n.node_id, n.raw_trait] for n in tip_nodes]
+            hovertemplate_tip = (
+                "<b>Taxon: %{customdata[0]}</b><br>"
+                "Node ID: %{customdata[1]}<br>"
+                "Tip Trait value: %{customdata[2]:.4f}<br>"
+                "Time before present: 0.0000<br>"
+                "Tree Layout (X): %{x:.2f}<extra></extra>"
+            )
+
         fig.add_trace(
             go.Scatter3d(
                 x=label_x,
@@ -398,14 +457,8 @@ def build_figure(
                 text=[n.label for n in tip_nodes],
                 textposition="top center",
                 textfont=dict(size=11, color="#222222"),
-                customdata=[[n.label, n.node_id, n.trait] for n in tip_nodes],
-                hovertemplate=(
-                    "<b>Taxon: %{customdata[0]}</b><br>"
-                    "Node ID: %{customdata[1]}<br>"
-                    "Tip Trait value: %{customdata[2]:.4f}<br>"
-                    "Time before present: 0.0000<br>"
-                    "Tree Layout (X): %{x:.2f}<extra></extra>"
-                ),
+                customdata=customdata_tip,
+                hovertemplate=hovertemplate_tip,
                 name="Terminal Taxa",
                 showlegend=False,
             )
@@ -449,7 +502,7 @@ def build_figure(
                 zerolinecolor="#d0d0d0",
             ),
             yaxis=dict(
-                title=dict(text="Trait value", font=dict(size=13, color="#333333")),
+                title=dict(text=y_axis_title, font=dict(size=13, color="#333333")),
                 showbackground=False,
                 gridcolor="#e5e5e5",
                 zerolinecolor="#d0d0d0",
