@@ -55,6 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--baseline-y", type=float, default=None, help="Custom baseline Y trait plane height"
     )
     plot_parser.add_argument(
+        "--baseline-raw-value", type=float, default=None,
+        help="Custom numeric scientific trait label to display at baseline Y (default: raw_trait_max + 2 for reverse transform)"
+    )
+    plot_parser.add_argument(
         "--trait-display-range", nargs=2, type=float, default=None, metavar=("START", "END"),
         help="Linearly remap raw trait values [min, max] to custom display range [START, END] (e.g. 13 5)"
     )
@@ -125,6 +129,7 @@ def run_plot(args: argparse.Namespace) -> int:
             title=args.title if args.title else "3D Phylogenetic Tree with Continuous Trait Evolution",
             baseline_y=args.baseline_y,
             trait_display_range=args.trait_display_range,
+            baseline_raw_value=args.baseline_raw_value,
         )
         fig = build_figure(
             plot_data=plot_data,
@@ -136,6 +141,7 @@ def run_plot(args: argparse.Namespace) -> int:
             show_centerline=not args.no_centerline,
             centerline_color=args.centerline_color,
             baseline_y=args.baseline_y,
+            baseline_raw_value=args.baseline_raw_value,
             show_node_markers=args.show_node_markers,
             background=args.background,
             camera_preset=args.camera_preset,

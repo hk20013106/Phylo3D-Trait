@@ -65,10 +65,10 @@ def test_no_node_or_tip_markers_by_default():
         if hasattr(trace, "mode") and trace.mode:
             assert "markers" not in trace.mode, f"Found unexpected marker mode: {trace.mode}"
 
-    # Verify tip trace mode is strictly 'text'
-    tip_traces = [t for t in fig.data if t.name == "Terminal Taxa"]
-    assert len(tip_traces) == 1
-    assert tip_traces[0].mode == "text"
+    # Verify tip labels exist in scene.annotations and no marker traces
+    annotations = fig.layout.scene.annotations
+    assert len(annotations) == 4
+    assert {ann.text for ann in annotations} == {"A", "B", "C", "D"}
 
 
 def test_optional_internal_node_markers():
@@ -143,7 +143,7 @@ def test_elife_camera_preset():
 
 
 def test_tip_labels_aligned_to_top_front_reference_line():
-    """Verify all tip labels are placed at y=global_trait_max and z=0.0 while retaining tip.x."""
+    """Verify all tip labels are placed as 3D scene annotations with slight top-front offset."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -166,24 +166,26 @@ def test_tip_labels_aligned_to_top_front_reference_line():
 
     fig = build_figure(plot_data)
 
-    tip_traces = [t for t in fig.data if t.name == "Terminal Taxa"]
-    assert len(tip_traces) == 1
-    trace = tip_traces[0]
+    annotations = fig.layout.scene.annotations
+    assert len(annotations) == 4
 
-    # 1. All tip labels y must equal global_trait_max (8.0)
-    assert len(trace.y) == 4
-    for y_val in trace.y:
-        assert y_val == pytest.approx(8.0)
-
-    # 2. All tip labels z must equal 0.0
-    assert len(trace.z) == 4
-    for z_val in trace.z:
-        assert z_val == pytest.approx(0.0)
-
-    # 3. Each label x must match corresponding tip x
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
     expected_xs = [n.x for n in tip_nodes]
-    assert list(trace.x) == expected_xs
+    expected_texts = [n.label for n in tip_nodes]
+
+    # 1. All annotations y > global_trait_max (8.0)
+    for ann in annotations:
+        assert ann.y > global_max
+        assert ann.y == pytest.approx(global_max + 0.02 * (8.0 - 1.2))
+
+    # 2. All annotations z <= 0.0
+    for ann in annotations:
+        assert ann.z <= 0.0
+        assert ann.showarrow is False
+
+    # 3. Each annotation x and text matches corresponding tip
+    assert [ann.x for ann in annotations] == expected_xs
+    assert [ann.text for ann in annotations] == expected_texts
 
     # 4. Biological tip node coordinates in plot_data remain unchanged
     assert plot_data.nodes["A"].y == pytest.approx(1.2)

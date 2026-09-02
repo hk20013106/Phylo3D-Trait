@@ -55,6 +55,7 @@ def build_plot_data(
     title: str = "3D Phylogenetic Tree with Continuous Trait Evolution",
     baseline_y: Optional[float] = None,
     trait_display_range: Optional[Tuple[float, float]] = None,
+    baseline_raw_value: Optional[float] = None,
 ) -> PlotData:
     """Convenience helper to parse tree, annotate traits, and construct PlotData.
 
@@ -66,6 +67,7 @@ def build_plot_data(
         title: Visualization title.
         baseline_y: Optional custom baseline Trait height for curtain meshes.
         trait_display_range: Optional custom (start, end) target display range for linear remapping.
+        baseline_raw_value: Optional custom numeric trait value to label at baseline Y.
 
     Returns:
         PlotData object.
@@ -87,6 +89,8 @@ def build_plot_data(
     )
     if baseline_y is not None:
         data.baseline_y = baseline_y
+    if baseline_raw_value is not None:
+        data.baseline_raw_value = baseline_raw_value
     return data
 
 
@@ -184,6 +188,7 @@ def _build_branch_curtains_geometry(
 def _generate_rescaled_ticks(
     plot_data: PlotData,
     baseline_y: Optional[float] = None,
+    baseline_raw_value: Optional[float] = None,
     num_ticks: int = 5,
 ) -> Tuple[List[float], List[str]]:
     """Generate (tickvals, ticktext) in display space labeled with raw scientific trait values.
@@ -191,6 +196,7 @@ def _generate_rescaled_ticks(
     Args:
         plot_data: PlotData container with raw trait bounds and trait_display_range.
         baseline_y: Custom baseline Y plane height.
+        baseline_raw_value: Optional override for the numeric scientific value displayed at baseline Y.
         num_ticks: Number of trait tick steps across the display domain (default: 5).
 
     Returns:
@@ -213,10 +219,27 @@ def _generate_rescaled_ticks(
     ticktext: List[str] = []
 
     eff_baseline = baseline_y if baseline_y is not None else plot_data.baseline_y
-    # If baseline is explicitly below the display trait domain, label it as "baseline"
+    eff_baseline_raw = (
+        baseline_raw_value
+        if baseline_raw_value is not None
+        else plot_data.baseline_raw_value
+    )
+
+    # If baseline is explicitly below the display trait domain, add bottom tick with raw numeric baseline value
     if eff_baseline is not None and eff_baseline < d_min - 1e-4:
+        if eff_baseline_raw is not None:
+            raw_b = eff_baseline_raw
+        elif d_start > d_end:  # reverse transform: lower display Y = higher raw trait
+            raw_b = plot_data.raw_trait_max + 2.0
+        else:  # forward transform: lower display Y = lower raw trait
+            raw_b = plot_data.raw_trait_min - 2.0
+
         tickvals.append(float(eff_baseline))
-        ticktext.append("baseline")
+        if abs(raw_b - round(raw_b)) < 1e-6:
+            b_label = f"{int(round(raw_b))}"
+        else:
+            b_label = f"{raw_b:.4f}".rstrip("0").rstrip(".")
+        ticktext.append(b_label)
 
     for d_val in disp_ticks:
         raw_val = plot_data.display_to_raw(d_val)
@@ -241,6 +264,7 @@ def build_figure(
     show_centerline: bool = True,
     centerline_color: str = "dark",
     baseline_y: Optional[float] = None,
+    baseline_raw_value: Optional[float] = None,
     show_node_markers: bool = False,
     internal_marker_size: float = 4.0,
     background: str = "white",
@@ -260,6 +284,7 @@ def build_figure(
         show_centerline: Whether to render top-edge outline along branches.
         centerline_color: Color mode for centerline ('dark', 'trait', or CSS color).
         baseline_y: Custom baseline Y plane height (defaults to plot_data.baseline_y).
+        baseline_raw_value: Custom numeric scientific trait value to label at baseline Y.
         show_node_markers: Whether to render ancestral node markers (default: False).
         internal_marker_size: Marker size if show_node_markers is True.
         background: 'white' (default) or 'transparent'.
@@ -292,6 +317,7 @@ def build_figure(
     rescaled_tickvals, rescaled_ticktext = _generate_rescaled_ticks(
         plot_data=plot_data,
         baseline_y=eff_baseline_y,
+        baseline_raw_value=baseline_raw_value,
         num_ticks=5,
     )
 
@@ -482,47 +508,30 @@ def build_figure(
                 )
             )
 
-    # 4. Build Terminal Tips text trace (aligned on top-front reference line: y = global_trait_max, z = 0.0)
+    # 4. Build Terminal Tips 3D annotations (aligned on top-front reference line with dynamic offsets)
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
+    tip_annotations: List[Dict[str, Any]] = []
     if tip_nodes and show_tip_labels:
-        label_x = [n.x for n in tip_nodes]
-        label_y = [plot_data.trait_max for _ in tip_nodes]
-        label_z = [0.0 for _ in tip_nodes]
-        if is_transformed:
-            customdata_tip = [[n.label, n.node_id, n.raw_trait, n.display_trait] for n in tip_nodes]
-            hovertemplate_tip = (
-                "<b>Taxon: %{customdata[0]}</b><br>"
-                "Node ID: %{customdata[1]}<br>"
-                "Raw Trait: %{customdata[2]:.4f}<br>"
-                "Display Trait (internal Y): %{customdata[3]:.4f}<br>"
-                "Time before present: 0.0000<br>"
-                "Tree Layout (X): %{x:.2f}<extra></extra>"
-            )
-        else:
-            customdata_tip = [[n.label, n.node_id, n.raw_trait] for n in tip_nodes]
-            hovertemplate_tip = (
-                "<b>Taxon: %{customdata[0]}</b><br>"
-                "Node ID: %{customdata[1]}<br>"
-                "Tip Trait value: %{customdata[2]:.4f}<br>"
-                "Time before present: 0.0000<br>"
-                "Tree Layout (X): %{x:.2f}<extra></extra>"
-            )
+        display_span = max(plot_data.trait_max - plot_data.trait_min, 1.0)
+        time_span = max(plot_data.time_max - plot_data.time_min, 1.0)
+        label_y_offset = 0.02 * display_span
+        label_z_offset = 0.015 * time_span
+        label_y = plot_data.trait_max + label_y_offset
+        label_z = 0.0 - label_z_offset
 
-        fig.add_trace(
-            go.Scatter3d(
-                x=label_x,
-                y=label_y,  # Aligned uniformly at global maximum trait value
-                z=label_z,  # Aligned at Time before present = 0.0
-                mode="text",
-                text=[n.label for n in tip_nodes],
-                textposition="top center",
-                textfont=dict(size=11, color="#222222"),
-                customdata=customdata_tip,
-                hovertemplate=hovertemplate_tip,
-                name="Terminal Taxa",
-                showlegend=False,
+        for n in tip_nodes:
+            tip_annotations.append(
+                dict(
+                    x=n.x,
+                    y=label_y,
+                    z=label_z,
+                    text=n.label,
+                    showarrow=False,
+                    xanchor="center",
+                    yanchor="bottom",
+                    font=dict(size=11, color="#222222"),
+                )
             )
-        )
 
     # Calculate default balanced manual aspect ratio
     if aspect_ratio is None:
@@ -582,6 +591,7 @@ def build_figure(
             aspectmode="manual",
             aspectratio=ratio_dict,
             camera=camera_cfg,
+            annotations=tip_annotations,
         ),
         margin=dict(l=20, r=20, t=50, b=20),
     )

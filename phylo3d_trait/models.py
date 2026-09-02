@@ -155,6 +155,7 @@ class PlotData:
     colorscale: str = "Turbo"
     title: str = "3D Phylogenetic Tree with Continuous Trait Evolution"
     baseline_y: Optional[float] = None
+    baseline_raw_value: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.baseline_y is None:

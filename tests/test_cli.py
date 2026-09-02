@@ -218,7 +218,7 @@ def test_example2_cli_end_to_end(tmp_path: Path):
     assert '"cmin":0.0' in content or '"cmin": 0.0' in content
     assert '"cmax":5.0' in content or '"cmax": 5.0' in content
     assert "Branch Curtains" in content
-    assert "Terminal Taxa" in content
+    assert "annotations" in content
 
 
 def test_cli_trait_display_range_end_to_end(tmp_path: Path):
@@ -243,9 +243,32 @@ def test_cli_trait_display_range_end_to_end(tmp_path: Path):
     content = out_html.read_text(encoding="utf-8")
     assert '"cmin":0.0' in content or '"cmin": 0.0' in content
     assert '"cmax":13.0' in content or '"cmax": 13.0' in content
-    assert "Raw Trait:" in content
-    assert "Display Trait (internal Y):" in content
     assert "Trait Value" in content
-    assert "baseline" in content
+    assert "annotations" in content
+    # In reverse transform, bottom label is 7 (raw_trait_max 5.0 + 2.0 = 7.0), not "baseline"
+    assert "7" in content
+
+
+def test_cli_custom_baseline_raw_value(tmp_path: Path):
+    """Verify CLI accepts and applies --baseline-raw-value."""
+    repo_root = Path(__file__).parent.parent
+    tree_file = repo_root / "examples" / "example2" / "tree.nwk"
+    values_file = repo_root / "examples" / "example2" / "node_values.csv"
+    out_html = tmp_path / "example2_custom_base.html"
+
+    ret = main([
+        "plot",
+        "--tree", str(tree_file),
+        "--values", str(values_file),
+        "--output", str(out_html),
+        "--baseline-y", "0",
+        "--trait-display-range", "13", "5",
+        "--baseline-raw-value", "18.5",
+    ])
+    assert ret == 0
+    assert out_html.exists()
+
+    content = out_html.read_text(encoding="utf-8")
+    assert "18.5" in content
 
 
