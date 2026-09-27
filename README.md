@@ -128,7 +128,7 @@ python -m phylo3d_trait.cli plot \
   --output path/to/tree3d.html
 ```
 
-Kevin Campbell-style display (reverse only the low/high color mapping, and color each fall-down curtain by the local branch trait) while leaving the trait-height axis unchanged:
+Branch-projected display (reverse only the low/high color mapping, and color each fall-down curtain by the local branch trait) while leaving the trait-height axis unchanged:
 
 ```bash
 python -m phylo3d_trait.cli plot \
