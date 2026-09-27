@@ -272,3 +272,31 @@ def test_cli_custom_baseline_raw_value(tmp_path: Path):
     assert "18.5" in content
 
 
+
+
+def test_cli_kevin_color_modes_end_to_end(tmp_path: Path):
+    """Verify independent colorscale reversal plus branch-colored curtains."""
+    repo_root = Path(__file__).parent.parent
+    tree_file = repo_root / "examples" / "example2" / "tree.nwk"
+    values_file = repo_root / "examples" / "example2" / "node_values.csv"
+    out_html = tmp_path / "example2_kevin_colors.html"
+
+    ret = main([
+        "plot",
+        "--tree", str(tree_file),
+        "--values", str(values_file),
+        "--output", str(out_html),
+        "--baseline-y", "0",
+        "--reverse-colorscale",
+        "--curtain-color-mode", "branch",
+    ])
+    assert ret == 0
+    assert out_html.exists()
+    assert out_html.stat().st_size > 5000
+
+    content = out_html.read_text(encoding="utf-8")
+    assert '"reversescale":true' in content or '"reversescale": true' in content
+    # In branch mode baseline Y=0 is geometry only, so color normalization
+    # remains on the actual trait range [1, 5].
+    assert '"cmin":1.0' in content or '"cmin": 1.0' in content
+    assert '"cmax":5.0' in content or '"cmax": 5.0' in content
