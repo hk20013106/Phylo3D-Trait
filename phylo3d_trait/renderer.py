@@ -12,7 +12,8 @@ Visual representations:
 - Text labels for terminal taxa without intrusive marker dots.
 - Pure white / transparent background with clean axis gridlines.
 - eLife-style camera preset with screen-vertical Y (Trait) and +Z foreground (MRCA).
-- Global trait normalization (trait_min, trait_max) across all surfaces.
+- Global trait normalization with optional independent color reversal and
+  branch-projected curtain coloring.
 """
 
 from __future__ import annotations
@@ -104,7 +105,8 @@ def _build_branch_curtains_geometry(
     For every parent -> child edge:
       - Obtains the sequence of sampled vertices P_0 .. P_M along the branch.
       - Constructs Top_k = (x_k, y_k, z_k) at the branch trait height (intensity = y_k).
-      - Constructs Bottom_k = (x_k, baseline_y, z_k) on the baseline plane (intensity = baseline_y).
+      - Constructs Bottom_k = (x_k, baseline_y, z_k) on the baseline plane.
+        Its intensity is baseline_y in 'height' mode or y_k in 'branch' mode.
       - Generates 2 triangles for each adjacent step (k, k+1):
           Triangle A: (Top_k, Bottom_k, Top_{k+1})
           Triangle B: (Bottom_k, Bottom_{k+1}, Top_{k+1})
