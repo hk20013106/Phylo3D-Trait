@@ -200,7 +200,7 @@ Branch color = local Trait
 
 ```text
 height  = 默认旧行为；幕帘顶点颜色由自身 Y 决定，因此从 branch 顶部到底部 baseline 形成垂直渐变
-branch  = Kevin 模式；每一条垂直 fall-down line 继承该位置 branch 顶部的 Trait 颜色，因此垂直方向为单色，但颜色仍可沿 branch 随 Trait 连续变化
+branch  = branch-projected 模式；每一条垂直 fall-down line 继承该位置 branch 顶部的 Trait 颜色，因此垂直方向为单色，但颜色仍可沿 branch 随 Trait 连续变化
 ```
 
 两种模式都使用整棵树统一的 Trait 色标，不允许每条 branch 单独归一化。
@@ -542,7 +542,7 @@ python -m phylo3d_trait.cli plot \
   --output path/to/my_project/tree3d.html
 ```
 
-Kevin Campbell 建议的显示方式（仅反转颜色，并让 fall-down curtain 继承局部 branch 颜色；Trait 高度不反转）：
+Branch-projected 显示方式（仅反转颜色，并让 fall-down curtain 继承局部 branch 颜色；Trait 高度不反转）：
 
 ```bash
 python -m phylo3d_trait.cli plot \
