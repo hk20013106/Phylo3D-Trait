@@ -134,9 +134,10 @@ Branch-projected display (reverse only the low/high color mapping, and color eac
 python -m phylo3d_trait.cli plot \
   --tree path/to/tree.nwk \
   --values path/to/node_values.csv \
-  --output path/to/tree3d_kevin.html \
+  --output path/to/tree3d_branch_colors.html \
   --reverse-colorscale \
-  --curtain-color-mode branch
+  --curtain-color-mode branch \
+  --centerline-color trait
 ```
 
 ---
