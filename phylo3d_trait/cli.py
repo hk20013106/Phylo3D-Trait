@@ -43,6 +43,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--colorscale", type=str, default="Turbo", help="Plotly colorscale name (default: Turbo)"
     )
     plot_parser.add_argument(
+        "--reverse-colorscale", action="store_true",
+        help="Reverse only the color mapping; trait heights and scientific values are unchanged"
+    )
+    plot_parser.add_argument(
+        "--curtain-color-mode", type=str, default="height", choices=["height", "branch"],
+        help=(
+            "Curtain coloring mode: 'height' keeps the historical vertical gradient; "
+            "'branch' projects each local branch trait color vertically to the baseline"
+        )
+    )
+    plot_parser.add_argument(
         "--segments", "-s", type=int, default=10, help="Number of interpolation segments per branch (default: 10)"
     )
     plot_parser.add_argument(
@@ -145,6 +156,8 @@ def run_plot(args: argparse.Namespace) -> int:
             show_node_markers=args.show_node_markers,
             background=args.background,
             camera_preset=args.camera_preset,
+            reverse_colorscale=args.reverse_colorscale,
+            curtain_color_mode=args.curtain_color_mode,
         )
         fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
         print(f"Successfully generated 3D phylogenetic visualization: {out_path}")
