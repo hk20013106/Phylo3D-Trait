@@ -548,9 +548,10 @@ Branch-projected 显示方式（仅反转颜色，并让 fall-down curtain 继�
 python -m phylo3d_trait.cli plot \
   --tree path/to/my_project/tree.nwk \
   --values path/to/my_project/node_values.csv \
-  --output path/to/my_project/tree3d_kevin.html \
+  --output path/to/my_project/tree3d_branch_colors.html \
   --reverse-colorscale \
-  --curtain-color-mode branch
+  --curtain-color-mode branch \
+  --centerline-color trait
 ```
 
 
