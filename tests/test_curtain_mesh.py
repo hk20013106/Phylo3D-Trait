@@ -124,7 +124,7 @@ def test_branch_color_mode_excludes_geometric_baseline_from_color_domain():
     mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
     assert mesh.cmin == pytest.approx(5.0)
     assert mesh.cmax == pytest.approx(8.0)
-    assert min(mesh.intensity) >= pytest.approx(5.0)
+    assert min(mesh.intensity) == pytest.approx(5.0)
 
 
 def test_invalid_curtain_color_mode_fails_loudly():
