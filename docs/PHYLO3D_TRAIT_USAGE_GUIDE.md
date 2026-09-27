@@ -217,13 +217,14 @@ branch  = Kevin 模式；每一条垂直 fall-down line 继承该位置 branch �
 baseline_y = trait_min
 ```
 
-因此：
+baseline 始终是 curtain 的几何底面；其颜色语义取决于模式：
 
 ```text
-minimum height = minimum Trait = minimum color value
+height mode: baseline Y 同时参与 mesh color domain，因此保持“几何高度 = 颜色值”的旧行为
+branch mode: baseline 仅是几何投影底面，不代表 Trait；mesh color domain 只覆盖真实 Trait 范围
 ```
 
-如果用户显式指定更低 baseline，则 color range 也必须覆盖 baseline，避免颜色被错误裁剪。
+因此，用户显式指定更低 baseline 时，只有 `height` 模式需要把 baseline 纳入颜色范围；`branch` 模式不会因为更低的几何 baseline 而压缩 Trait 色标。
 
 ---
 
@@ -1058,7 +1059,9 @@ Z = Time before present
 颜色：
 
 ```text
-Color = Trait = Y
+Top branch: Color = local Trait and Y = Trait
+Curtain height mode: color follows vertex Y
+Curtain branch mode: color follows local top-branch Trait, vertically projected to baseline
 ```
 
 几何：
@@ -1101,7 +1104,7 @@ eLife-style initial view
 
 ### 核心坐标与不变量
 - **$X$**：水平树布局（Lineage 横向排列）
-- **$Y$**：Trait 连续性状高度（**$Y = \text{Trait} = \text{Color}$**）
+- **$Y$**：Trait 连续性状高度（顶部 branch 始终 **$Y = \text{Trait}$**；颜色由所选 curtain mode 决定）
 - **$Z$**：距今演化时间（Tips 为 0，Root 为最大演化年龄）
 
 ### 极简执行命令
