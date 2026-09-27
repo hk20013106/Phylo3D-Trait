@@ -272,14 +272,12 @@ def test_cli_custom_baseline_raw_value(tmp_path: Path):
     assert "18.5" in content
 
 
-
-
-def test_cli_kevin_color_modes_end_to_end(tmp_path: Path):
+def test_cli_branch_color_modes_end_to_end(tmp_path: Path):
     """Verify independent colorscale reversal plus branch-colored curtains."""
     repo_root = Path(__file__).parent.parent
     tree_file = repo_root / "examples" / "example2" / "tree.nwk"
     values_file = repo_root / "examples" / "example2" / "node_values.csv"
-    out_html = tmp_path / "example2_kevin_colors.html"
+    out_html = tmp_path / "example2_branch_colors.html"
 
     ret = main([
         "plot",
@@ -289,6 +287,7 @@ def test_cli_kevin_color_modes_end_to_end(tmp_path: Path):
         "--baseline-y", "0",
         "--reverse-colorscale",
         "--curtain-color-mode", "branch",
+        "--centerline-color", "trait",
     ])
     assert ret == 0
     assert out_html.exists()
