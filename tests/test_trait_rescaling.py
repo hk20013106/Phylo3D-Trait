@@ -222,6 +222,43 @@ def test_axis_and_colorbar_presentation_labels():
     assert plot_data.nodes["B"].raw_trait == pytest.approx(9.8247)
 
 
+def test_branch_color_mode_keeps_baseline_tick_off_colorbar():
+    """In branch mode, a geometry-only baseline stays on Y axis but not on the trait colorbar."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+
+    trait_values = {
+        "A": 5.0,
+        "B": 10.0,
+        id_root: 7.5,
+    }
+
+    plot_data = build_plot_data(
+        tree,
+        trait_values,
+        baseline_y=0.0,
+        trait_display_range=(13.0, 5.0),
+    )
+
+    fig = build_figure(
+        plot_data,
+        baseline_y=0.0,
+        curtain_color_mode="branch",
+    )
+
+    yaxis = fig.layout.scene.yaxis
+    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+
+    # Baseline remains visible as geometry on the Y axis.
+    assert list(yaxis.tickvals)[0] == pytest.approx(0.0)
+
+    # But it is not a scientific trait color in branch mode.
+    assert 0.0 not in list(mesh.colorbar.tickvals)
+    assert mesh.cmin == pytest.approx(5.0)
+    assert mesh.cmax == pytest.approx(13.0)
+
+
 def test_custom_baseline_raw_value_option():
     """Verify custom --baseline-raw-value overrides default raw_trait_max + 2."""
     tree_str = "(A:10,B:10);"

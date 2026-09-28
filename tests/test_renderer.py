@@ -45,6 +45,52 @@ def test_global_color_normalization():
                 assert trace.line.cmax == pytest.approx(12.5)
 
 
+def test_reverse_colorscale_changes_color_mapping_only():
+    """Reverse colorscale must not alter trait heights or raw scientific values."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 5.0, "B": 10.0, id_root: 7.5}
+
+    plot_data = build_plot_data(tree, trait_values)
+    original_y = {node_id: node.y for node_id, node in plot_data.nodes.items()}
+    original_raw = {node_id: node.raw_trait for node_id, node in plot_data.nodes.items()}
+
+    fig = build_figure(
+        plot_data,
+        reverse_colorscale=True,
+        centerline_color="trait",
+        show_node_markers=True,
+    )
+
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
+    line = [t for t in fig.data if t.name == "Branch Centerlines"][0]
+    markers = [t for t in fig.data if t.name == "Internal Nodes"][0]
+
+    assert mesh.reversescale is True
+    assert line.line.reversescale is True
+    assert markers.marker.reversescale is True
+
+    assert {node_id: node.y for node_id, node in plot_data.nodes.items()} == original_y
+    assert {node_id: node.raw_trait for node_id, node in plot_data.nodes.items()} == original_raw
+    assert plot_data.nodes["A"].y == pytest.approx(5.0)
+    assert plot_data.nodes["B"].y == pytest.approx(10.0)
+
+
+def test_default_colorscale_direction_is_unchanged():
+    """Existing plots remain backward-compatible unless reversal is requested."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 5.0, "B": 10.0, id_root: 7.5}
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
+
+    assert mesh.reversescale is False
+
+
 def test_no_node_or_tip_markers_by_default():
     """Verify no internal node markers or tip circle markers are drawn by default."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"

@@ -189,29 +189,23 @@ Color = Yp
 
 # 5. Trait 与颜色
 
-整个系统必须满足：
+顶部系统发育分支始终满足：
 
 ```text
-Y == Trait == ColorValue
+Y = Trait
+Branch color = local Trait
 ```
 
-对于 Mesh3d 任意 vertex：
+幕帘（curtain）提供两种颜色模式：
 
 ```text
-intensity == vertex.y
+height  = 默认旧行为；幕帘顶点颜色由自身 Y 决定，因此从 branch 顶部到底部 baseline 形成垂直渐变
+branch  = branch-projected 模式；每一条垂直 fall-down line 继承该位置 branch 顶部的 Trait 颜色，因此垂直方向为单色，但颜色仍可沿 branch 随 Trait 连续变化
 ```
 
-例如：
+两种模式都使用整棵树统一的 Trait 色标，不允许每条 branch 单独归一化。
 
-```text
-Y=1 -> Trait 1 color
-Y=2 -> Trait 2 color
-Y=3 -> Trait 3 color
-Y=4 -> Trait 4 color
-Y=5 -> Trait 5 color
-```
-
-颜色范围必须按整个 tree 的全局范围归一化，不能每条 branch 单独归一化。
+`--reverse-colorscale` 只反转颜色查找表，不改变 Y 轴高度、Trait 原始值或 ASR 结果。因此若目标只是“低值红、高值蓝”，不要使用 `--trait-display-range 13 5` 来代替颜色反转；后者会连 Trait 的显示高度一起反转。
 
 ---
 
@@ -223,13 +217,14 @@ Y=5 -> Trait 5 color
 baseline_y = trait_min
 ```
 
-因此：
+baseline 始终是 curtain 的几何底面；其颜色语义取决于模式：
 
 ```text
-minimum height = minimum Trait = minimum color value
+height mode: baseline Y 同时参与 mesh color domain，因此保持“几何高度 = 颜色值”的旧行为
+branch mode: baseline 仅是几何投影底面，不代表 Trait；mesh color domain 只覆盖真实 Trait 范围
 ```
 
-如果用户显式指定更低 baseline，则 color range 也必须覆盖 baseline，避免颜色被错误裁剪。
+因此，用户显式指定更低 baseline 时，只有 `height` 模式需要把 baseline 纳入颜色范围；`branch` 模式不会因为更低的几何 baseline 而压缩 Trait 色标。
 
 ---
 
@@ -547,6 +542,19 @@ python -m phylo3d_trait.cli plot \
   --output path/to/my_project/tree3d.html
 ```
 
+Branch-projected 显示方式（仅反转颜色，并让 fall-down curtain 继承局部 branch 颜色；Trait 高度不反转）：
+
+```bash
+python -m phylo3d_trait.cli plot \
+  --tree path/to/my_project/tree.nwk \
+  --values path/to/my_project/node_values.csv \
+  --output path/to/my_project/tree3d_branch_colors.html \
+  --reverse-colorscale \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+
 然后打开：
 
 ```text
@@ -691,6 +699,8 @@ python -m phylo3d_trait.cli plot --help
 | 参数 | 类型 / 可选值 | 默认值 | 作用说明 |
 |---|---|---|---|
 | `--colorscale` | string | `Turbo` | 连续色标（如 `Turbo`、`Viridis`、`Plasma`、`Spectral`） |
+| `--reverse-colorscale` | flag | `False` | 仅反转颜色映射，不改变 Trait 高度或原始数值 |
+| `--curtain-color-mode` | `height`, `branch` | `height` | `height` 为原始垂直渐变；`branch` 将每个局部 branch 的 Trait 颜色垂直投影至 baseline |
 | `--camera-preset` | `elife`, `root_front`, `tips_front` | `elife` | 初始视角（`elife`: MRCA 在前景、Trait 轴竖直、正交投影） |
 | `--background` | `white`, `transparent` | `white` | 背景风格（默认纯白，关闭 3D 墙壁；或全透明） |
 | `--opacity` | float (0.0 - 1.0) | `1.0` | 幕帘曲面不透明度（默认 1.0 启用原生 WebGL 深度遮挡） |
@@ -1050,7 +1060,9 @@ Z = Time before present
 颜色：
 
 ```text
-Color = Trait = Y
+Top branch: Color = local Trait and Y = Trait
+Curtain height mode: color follows vertex Y
+Curtain branch mode: color follows local top-branch Trait, vertically projected to baseline
 ```
 
 几何：
@@ -1093,7 +1105,7 @@ eLife-style initial view
 
 ### 核心坐标与不变量
 - **$X$**：水平树布局（Lineage 横向排列）
-- **$Y$**：Trait 连续性状高度（**$Y = \text{Trait} = \text{Color}$**）
+- **$Y$**：Trait 连续性状高度（顶部 branch 始终 **$Y = \text{Trait}$**；颜色由所选 curtain mode 决定）
 - **$Z$**：距今演化时间（Tips 为 0，Root 为最大演化年龄）
 
 ### 极简执行命令

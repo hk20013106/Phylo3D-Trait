@@ -40,9 +40,11 @@ The 3D coordinate space maps strictly as follows:
 
 $$\text{Point}_k = (X_k, \text{Trait}_k, \text{Time}_k)$$
 
-### The Core Scientific Invariant: $Y = \text{Trait} = \text{Surface Color}$
-- **Height & Color Coupled**: Every point on the branch surface simultaneously reflects the continuous trait value through both its vertical position ($Y$) and its color intensity.
-- **Global Normalization**: Global $\text{trait}_{\min}$ and $\text{trait}_{\max}$ are computed across all nodes and applied uniformly to the color scale and vertical baseline.
+### Scientific mapping of height and color
+- **Top branch geometry** always obeys `Y = Trait`, and branch color is always derived from the same local trait value.
+- **Default curtain mode (`height`)** preserves the historical invariant `vertex color intensity == vertex Y`, producing a vertical color gradient down to the baseline.
+- **Optional curtain mode (`branch`)** treats the curtain as a geometric projection only: each vertical fall-down line inherits the local branch trait color from its top point. This removes the artificial vertical gradient while allowing color to change continuously along the branch.
+- **Global normalization** uses one trait scale across the tree. In `branch` mode, a lower geometric baseline does not expand or compress the scientific trait color domain.
 
 ---
 
@@ -62,6 +64,8 @@ Each biological edge connecting `parent (Xp, Yp, Zp)` to `child (Xc, Yc, Zc)` is
 - Underneath each connector and lineage path, continuous vertical mesh panels (`go.Mesh3d`) descend to a common baseline:
   $$\text{baseline\_y} = \text{trait}_{\min}$$
 - **Opaque Depth Buffering**: Rendered with `opacity = 1.0` by default for native WebGL Z-buffer depth occlusion from any viewing angle.
+- **Curtain coloring**: `height` (default) gives the original vertical gradient; `branch` vertically projects each local branch color to the baseline.
+- **Independent color reversal**: `--reverse-colorscale` reverses only the color lookup table; it does not alter trait heights or raw values.
 - **Top Outline Synergy**: Paired with clean top branch boundary lines (`width = 1.0`).
 
 ---
@@ -124,6 +128,18 @@ python -m phylo3d_trait.cli plot \
   --output path/to/tree3d.html
 ```
 
+Branch-projected display (reverse only the low/high color mapping, and color each fall-down curtain by the local branch trait) while leaving the trait-height axis unchanged:
+
+```bash
+python -m phylo3d_trait.cli plot \
+  --tree path/to/tree.nwk \
+  --values path/to/node_values.csv \
+  --output path/to/tree3d_branch_colors.html \
+  --reverse-colorscale \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
 ---
 
 ## 6. Command Line Interface (CLI) Reference
@@ -147,6 +163,8 @@ python -m phylo3d_trait.cli plot -h
 - `--output, -o` *(required)*: Path to output standalone HTML file.
 - `--title`: Title displayed above the 3D scene.
 - `--colorscale`: Continuous colorscale name (e.g. `Turbo`, `Viridis`, `Plasma`, `Spectral`, default: `Turbo`).
+- `--reverse-colorscale`: Reverse only the color mapping while keeping trait heights/scientific values unchanged.
+- `--curtain-color-mode {height,branch}`: `height` keeps the original vertical gradient; `branch` makes each vertical fall-down line inherit the local branch trait color.
 - `--camera-preset`: Initial viewing angle (`elife` [default], `root_front`, `tips_front`).
 - `--background`: Background styling (`white` [default] or `transparent`).
 - `--segments, -s`: Linear subdivisions per branch segment (default: `10`).

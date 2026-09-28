@@ -73,6 +73,72 @@ def test_top_bottom_intensity_pair_gradient():
     assert mesh_intensity[bot_idx] != pytest.approx(5.0)
 
 
+def test_branch_color_mode_projects_local_trait_to_baseline():
+    """Branch mode must keep each vertical fall-down line a single trait color."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+
+    trait_values = {"A": 5.0, "B": 3.0, id_root: 1.0}
+    plot_data = build_plot_data(tree, trait_values, num_segments=10)
+
+    (
+        mesh_x,
+        mesh_y,
+        mesh_z,
+        mesh_i,
+        mesh_j,
+        mesh_k,
+        mesh_intensity,
+    ) = _build_branch_curtains_geometry(
+        plot_data,
+        plot_data.baseline_y,
+        curtain_color_mode="branch",
+    )
+
+    # Vertices are interleaved as Top_k, Bottom_k. In branch mode each pair
+    # must carry exactly the same local branch-trait color intensity.
+    assert len(mesh_intensity) % 2 == 0
+    for idx in range(0, len(mesh_intensity), 2):
+        assert mesh_intensity[idx + 1] == pytest.approx(mesh_intensity[idx])
+
+    # Geometry is unchanged: bottom vertices still lie on the baseline.
+    for idx in range(1, len(mesh_y), 2):
+        assert mesh_y[idx] == pytest.approx(plot_data.baseline_y)
+
+
+def test_branch_color_mode_excludes_geometric_baseline_from_color_domain():
+    """A geometry-only baseline must not compress the trait colors in branch mode."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 5.0, "B": 8.0, id_root: 6.0}
+
+    plot_data = build_plot_data(tree, trait_values, baseline_y=0.0)
+    fig = build_figure(
+        plot_data,
+        baseline_y=0.0,
+        curtain_color_mode="branch",
+    )
+
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
+    assert mesh.cmin == pytest.approx(5.0)
+    assert mesh.cmax == pytest.approx(8.0)
+    assert min(mesh.intensity) == pytest.approx(5.0)
+
+
+def test_invalid_curtain_color_mode_fails_loudly():
+    """Unknown curtain color modes must not silently fall back."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 2.0, "B": 4.0, id_root: 3.0}
+    plot_data = build_plot_data(tree, trait_values)
+
+    with pytest.raises(ValueError, match="curtain_color_mode"):
+        build_figure(plot_data, curtain_color_mode="unknown")
+
+
 def test_default_baseline_y_equals_trait_min():
     """Verify default baseline_y strictly equals trait_min."""
     tree_str = "(A:10,B:10);"

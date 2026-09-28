@@ -12,7 +12,8 @@ Visual representations:
 - Text labels for terminal taxa without intrusive marker dots.
 - Pure white / transparent background with clean axis gridlines.
 - eLife-style camera preset with screen-vertical Y (Trait) and +Z foreground (MRCA).
-- Global trait normalization (trait_min, trait_max) across all surfaces.
+- Global trait normalization with optional independent color reversal and
+  branch-projected curtain coloring.
 """
 
 from __future__ import annotations
@@ -97,13 +98,15 @@ def build_plot_data(
 def _build_branch_curtains_geometry(
     plot_data: PlotData,
     baseline_y: float,
+    curtain_color_mode: str = "height",
 ) -> Tuple[List[float], List[float], List[float], List[int], List[int], List[int], List[float]]:
     """Construct 3D mesh vertices, triangle indices, and vertex color intensities for branch curtains.
 
     For every parent -> child edge:
       - Obtains the sequence of sampled vertices P_0 .. P_M along the branch.
       - Constructs Top_k = (x_k, y_k, z_k) at the branch trait height (intensity = y_k).
-      - Constructs Bottom_k = (x_k, baseline_y, z_k) on the baseline plane (intensity = baseline_y).
+      - Constructs Bottom_k = (x_k, baseline_y, z_k) on the baseline plane.
+        Its intensity is baseline_y in 'height' mode or y_k in 'branch' mode.
       - Generates 2 triangles for each adjacent step (k, k+1):
           Triangle A: (Top_k, Bottom_k, Top_{k+1})
           Triangle B: (Bottom_k, Bottom_{k+1}, Top_{k+1})
@@ -113,6 +116,10 @@ def _build_branch_curtains_geometry(
     Args:
         plot_data: PlotData containing edge segments and scaling bounds.
         baseline_y: The constant Y height of the baseline plane.
+        curtain_color_mode: 'height' keeps the historical vertical gradient
+            (vertex color intensity equals vertex Y). 'branch' projects each
+            local branch trait color vertically to the baseline so each fall-down
+            line is a single color while color can still change along the branch.
 
     Returns:
         Tuple of (mesh_x, mesh_y, mesh_z, mesh_i, mesh_j, mesh_k, mesh_intensity).
@@ -124,6 +131,12 @@ def _build_branch_curtains_geometry(
     mesh_j: List[int] = []
     mesh_k: List[int] = []
     mesh_intensity: List[float] = []
+
+    if curtain_color_mode not in {"height", "branch"}:
+        raise ValueError(
+            "curtain_color_mode must be 'height' or 'branch', "
+            f"got {curtain_color_mode!r}"
+        )
 
     # Group segments by parent-child edge
     edge_map: Dict[tuple, List[EdgeSegment]] = {}
@@ -151,17 +164,22 @@ def _build_branch_curtains_geometry(
         for k in range(num_pts):
             xk, yk, zk = branch_pts[k]
 
-            # Top vertex (at trait height, intensity == yk)
+            # Top vertex is always colored by the local branch trait.
             mesh_x.append(xk)
             mesh_y.append(yk)
             mesh_z.append(zk)
             mesh_intensity.append(yk)
 
-            # Bottom vertex (at baseline_y, intensity == baseline_y)
+            # Historical/default mode colors by geometric height, producing a
+            # vertical gradient. Branch mode extrudes the local top-branch color
+            # straight down to the baseline, making each fall-down line uniform.
             mesh_x.append(xk)
             mesh_y.append(baseline_y)
             mesh_z.append(zk)
-            mesh_intensity.append(baseline_y)
+            if curtain_color_mode == "height":
+                mesh_intensity.append(baseline_y)
+            else:
+                mesh_intensity.append(yk)
 
         # Build 2 triangles per segment quad
         for k in range(num_pts - 1):
@@ -190,6 +208,7 @@ def _generate_rescaled_ticks(
     baseline_y: Optional[float] = None,
     baseline_raw_value: Optional[float] = None,
     num_ticks: int = 5,
+    include_baseline: bool = True,
 ) -> Tuple[List[float], List[str]]:
     """Generate (tickvals, ticktext) in display space labeled with raw scientific trait values.
 
@@ -198,6 +217,8 @@ def _generate_rescaled_ticks(
         baseline_y: Custom baseline Y plane height.
         baseline_raw_value: Optional override for the numeric scientific value displayed at baseline Y.
         num_ticks: Number of trait tick steps across the display domain (default: 5).
+        include_baseline: Whether to include an explicit baseline tick when the
+            baseline lies below the displayed trait domain.
 
     Returns:
         Tuple of (tickvals, ticktext) for Plotly axis and colorbar.
@@ -226,7 +247,7 @@ def _generate_rescaled_ticks(
     )
 
     # If baseline is explicitly below the display trait domain, add bottom tick with raw numeric baseline value
-    if eff_baseline is not None and eff_baseline < d_min - 1e-4:
+    if include_baseline and eff_baseline is not None and eff_baseline < d_min - 1e-4:
         if eff_baseline_raw is not None:
             raw_b = eff_baseline_raw
         elif d_start > d_end:  # reverse transform: lower display Y = higher raw trait
@@ -270,6 +291,8 @@ def build_figure(
     background: str = "white",
     camera_preset: str = "elife",
     custom_camera: Optional[Dict[str, Any]] = None,
+    reverse_colorscale: bool = False,
+    curtain_color_mode: str = "height",
 ) -> go.Figure:
     """Construct an interactive Plotly 3D Figure in clean publication style with eLife-style camera.
 
@@ -290,6 +313,11 @@ def build_figure(
         background: 'white' (default) or 'transparent'.
         camera_preset: Preset camera angle ('elife', 'root_front', 'tips_front', default: 'elife').
         custom_camera: Optional dict to override camera config completely.
+        reverse_colorscale: Reverse only the color mapping while leaving trait
+            heights and scientific values unchanged.
+        curtain_color_mode: 'height' (default) colors curtains by geometric
+            Y height; 'branch' projects each local branch trait color vertically
+            to the baseline.
 
     Returns:
         Plotly go.Figure configured for interactive 3D display.
@@ -300,13 +328,30 @@ def build_figure(
     if eff_baseline_y is None:
         eff_baseline_y = plot_data.trait_min
 
-    # Color range covers all traits and baseline plane
-    cmin = min(plot_data.trait_min, eff_baseline_y)
-    cmax = max(plot_data.trait_max, eff_baseline_y)
-    # Handle single constant trait edge case
-    if cmin == cmax:
-        cmin -= 0.5
-        cmax += 0.5
+    if curtain_color_mode not in {"height", "branch"}:
+        raise ValueError(
+            "curtain_color_mode must be 'height' or 'branch', "
+            f"got {curtain_color_mode!r}"
+        )
+
+    # Branch/marker colors are always normalized to the actual displayed trait
+    # domain. In historical height mode the curtain additionally colors its
+    # geometric baseline, so the mesh color domain must include baseline_y.
+    trait_cmin = plot_data.trait_min
+    trait_cmax = plot_data.trait_max
+    if trait_cmin == trait_cmax:
+        trait_cmin -= 0.5
+        trait_cmax += 0.5
+
+    if curtain_color_mode == "height":
+        mesh_cmin = min(plot_data.trait_min, eff_baseline_y)
+        mesh_cmax = max(plot_data.trait_max, eff_baseline_y)
+        if mesh_cmin == mesh_cmax:
+            mesh_cmin -= 0.5
+            mesh_cmax += 0.5
+    else:
+        mesh_cmin = trait_cmin
+        mesh_cmax = trait_cmax
 
     fig = go.Figure()
 
@@ -314,11 +359,19 @@ def build_figure(
     is_transformed = plot_data.trait_display_range is not None
     colorbar_title = "Trait Value"
     y_axis_title = "Trait value"
-    rescaled_tickvals, rescaled_ticktext = _generate_rescaled_ticks(
+    y_tickvals, y_ticktext = _generate_rescaled_ticks(
         plot_data=plot_data,
         baseline_y=eff_baseline_y,
         baseline_raw_value=baseline_raw_value,
         num_ticks=5,
+        include_baseline=True,
+    )
+    colorbar_tickvals, colorbar_ticktext = _generate_rescaled_ticks(
+        plot_data=plot_data,
+        baseline_y=eff_baseline_y,
+        baseline_raw_value=baseline_raw_value,
+        num_ticks=5,
+        include_baseline=(curtain_color_mode == "height"),
     )
 
     if show_mesh and plot_data.segments:
@@ -333,6 +386,7 @@ def build_figure(
         ) = _build_branch_curtains_geometry(
             plot_data=plot_data,
             baseline_y=eff_baseline_y,
+            curtain_color_mode=curtain_color_mode,
         )
 
         if mesh_x and mesh_i:
@@ -342,10 +396,10 @@ def build_figure(
                 len=0.75,
                 x=1.02,
             )
-            if is_transformed and rescaled_tickvals:
+            if is_transformed and colorbar_tickvals:
                 cb_dict["tickmode"] = "array"
-                cb_dict["tickvals"] = rescaled_tickvals
-                cb_dict["ticktext"] = rescaled_ticktext
+                cb_dict["tickvals"] = colorbar_tickvals
+                cb_dict["ticktext"] = colorbar_ticktext
 
             fig.add_trace(
                 go.Mesh3d(
@@ -357,8 +411,9 @@ def build_figure(
                     k=mesh_k,
                     intensity=mesh_intensity,
                     colorscale=plot_data.colorscale,
-                    cmin=cmin,
-                    cmax=cmax,
+                    cmin=mesh_cmin,
+                    cmax=mesh_cmax,
+                    reversescale=reverse_colorscale,
                     opacity=mesh_opacity,
                     flatshading=False,
                     lighting=dict(
@@ -416,8 +471,9 @@ def build_figure(
             line_cfg = dict(
                 color=branch_colors,
                 colorscale=plot_data.colorscale,
-                cmin=cmin,
-                cmax=cmax,
+                cmin=trait_cmin,
+                cmax=trait_cmax,
+                reversescale=reverse_colorscale,
                 width=branch_width,
             )
         elif centerline_color == "dark":
@@ -496,8 +552,9 @@ def build_figure(
                         size=internal_marker_size,
                         color=[n.trait for n in internal_nodes],
                         colorscale=plot_data.colorscale,
-                        cmin=cmin,
-                        cmax=cmax,
+                        cmin=trait_cmin,
+                        cmax=trait_cmax,
+                        reversescale=reverse_colorscale,
                         symbol="diamond",
                         opacity=0.95,
                     ),
@@ -559,10 +616,10 @@ def build_figure(
         gridcolor="#e5e5e5",
         zerolinecolor="#d0d0d0",
     )
-    if is_transformed and rescaled_tickvals:
+    if is_transformed and y_tickvals:
         yaxis_cfg["tickmode"] = "array"
-        yaxis_cfg["tickvals"] = rescaled_tickvals
-        yaxis_cfg["ticktext"] = rescaled_ticktext
+        yaxis_cfg["tickvals"] = y_tickvals
+        yaxis_cfg["ticktext"] = y_ticktext
 
     # Scene and Camera Configuration
     fig.update_layout(
