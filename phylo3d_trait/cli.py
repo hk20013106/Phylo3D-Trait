@@ -74,6 +74,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Linearly remap raw trait values [min, max] to custom display range [START, END] (e.g. 13 5)"
     )
     plot_parser.add_argument(
+        "--trait-display-offset", type=float, default=None,
+        help="Display offset subtracted from raw trait (display_trait = raw_trait - OFFSET). Maps raw trait = OFFSET to display Y = 0."
+    )
+    plot_parser.add_argument(
         "--opacity", type=float, default=1.0, help="Opacity for curtain meshes (0.0 - 1.0, default: 1.0)"
     )
     plot_parser.add_argument(
@@ -141,6 +145,7 @@ def run_plot(args: argparse.Namespace) -> int:
             baseline_y=args.baseline_y,
             trait_display_range=args.trait_display_range,
             baseline_raw_value=args.baseline_raw_value,
+            trait_display_offset=args.trait_display_offset,
         )
         fig = build_figure(
             plot_data=plot_data,

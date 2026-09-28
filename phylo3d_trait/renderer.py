@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+import math
 import plotly.graph_objects as go
 
 from phylo3d_trait.models import EdgeSegment, PlotData
@@ -57,6 +58,7 @@ def build_plot_data(
     baseline_y: Optional[float] = None,
     trait_display_range: Optional[Tuple[float, float]] = None,
     baseline_raw_value: Optional[float] = None,
+    trait_display_offset: Optional[float] = None,
 ) -> PlotData:
     """Convenience helper to parse tree, annotate traits, and construct PlotData.
 
@@ -87,7 +89,10 @@ def build_plot_data(
         colorscale=colorscale,
         title=title,
         trait_display_range=trait_display_range,
+        trait_display_offset=trait_display_offset,
     )
+    if trait_display_offset is not None:
+        data.trait_display_offset = trait_display_offset
     if baseline_y is not None:
         data.baseline_y = baseline_y
     if baseline_raw_value is not None:
@@ -223,6 +228,38 @@ def _generate_rescaled_ticks(
     Returns:
         Tuple of (tickvals, ticktext) for Plotly axis and colorbar.
     """
+    if plot_data.trait_display_offset is not None:
+        eff_baseline = baseline_y if baseline_y is not None else plot_data.baseline_y
+        if eff_baseline is None:
+            eff_baseline = 0.0
+
+        d_min = plot_data.trait_min
+        d_max = plot_data.trait_max
+
+        if include_baseline and eff_baseline is not None and eff_baseline < d_min:
+            raw_start = round(plot_data.display_to_raw(eff_baseline))
+        else:
+            raw_start = round(plot_data.display_to_raw(d_min))
+        raw_end = math.ceil(plot_data.display_to_raw(d_max))
+
+        span = raw_end - raw_start
+        if span <= 8:
+            step = 1.0
+        elif span <= 16:
+            step = 2.0
+        else:
+            step = max(1.0, round(span / float(num_ticks - 1)))
+
+        raw_vals = []
+        curr = float(raw_start)
+        while curr <= raw_end + 1e-5:
+            raw_vals.append(curr)
+            curr += step
+
+        tickvals = [round(plot_data.raw_to_display(r), 6) for r in raw_vals]
+        ticktext = [str(int(r)) if abs(r - round(r)) < 1e-6 else f"{r:.4f}".rstrip("0").rstrip(".") for r in raw_vals]
+        return tickvals, ticktext
+
     if plot_data.trait_display_range is None:
         return [], []
 
@@ -356,7 +393,7 @@ def build_figure(
     fig = go.Figure()
 
     # 1. Build continuous curtain mesh surfaces (Mesh3d)
-    is_transformed = plot_data.trait_display_range is not None
+    is_transformed = (plot_data.trait_display_range is not None) or (plot_data.trait_display_offset is not None)
     colorbar_title = "Trait Value"
     y_axis_title = "Trait value"
     y_tickvals, y_ticktext = _generate_rescaled_ticks(
@@ -517,8 +554,7 @@ def build_figure(
             hovertemplate_internal = (
                 "<b>Node: %{customdata[0]}</b><br>"
                 "Type: %{customdata[1]}<br>"
-                "Raw Trait: %{customdata[2]:.4f}<br>"
-                "Display Trait (internal Y): %{customdata[3]:.4f}<br>"
+                "Trait value (Y / Height): %{customdata[2]:.4f}<br>"
                 "Time before present (Z): %{z:.4f}<br>"
                 "Tree Layout (X): %{x:.2f}<br>"
                 "%{customdata[4]}<extra></extra>"
@@ -578,8 +614,7 @@ def build_figure(
             hovertemplate_tip = (
                 "<b>Taxon: %{customdata[0]}</b><br>"
                 "Node ID: %{customdata[1]}<br>"
-                "Raw Trait: %{customdata[2]:.4f}<br>"
-                "Display Trait (internal Y): %{customdata[3]:.4f}<br>"
+                "Trait value (Y / Height): %{customdata[2]:.4f}<br>"
                 "Time before present (Z): %{z:.4f}<br>"
                 "Tree Layout (X): %{x:.2f}<extra></extra>"
             )
