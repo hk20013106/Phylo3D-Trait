@@ -653,6 +653,98 @@ def build_figure(
 
     fig = go.Figure()
 
+    # 0. Branch top centerline outlines (Scatter3d lines).
+    #    The line data (x/y/z/colors) is always identical; only the DRAW ORDER
+    #    and the trace opacity may change with the curtain opacity:
+    #    - opacity == 1.0: the trace is appended after the curtain meshes,
+    #      fully opaque (legacy behavior; verified pixel-identical).
+    #    - opacity < 1.0: the trace is inserted BEFORE the curtain meshes and
+    #      carries the same standard opacity (90% opaque for 0.9). WebGL
+    #      composites transparent objects in draw order, so foreground curtains
+    #      then blend over background centerlines instead of leaving them
+    #      visible as crisp 1-px lines running through translucent curtains;
+    #      uncovered top-edge centerlines stay visible.
+    #    The camera hook never moves this trace (it only reorders mesh3d
+    #    traces), so the line stays in its assigned slot after any camera
+    #    change.
+    branch_x: List[Optional[float]] = []
+    branch_y: List[Optional[float]] = []
+    branch_z: List[Optional[float]] = []
+    branch_colors: List[Optional[float]] = []
+
+    edge_map: Dict[tuple, List[EdgeSegment]] = {}
+    for seg in plot_data.segments:
+        key = (seg.parent_id, seg.child_id)
+        if key not in edge_map:
+            edge_map[key] = []
+        edge_map[key].append(seg)
+
+    for (p_id, c_id), segs in edge_map.items():
+        sorted_segs = sorted(segs, key=lambda s: s.segment_index)
+        if not sorted_segs:
+            continue
+
+        # Start vertex
+        branch_x.append(sorted_segs[0].x0)
+        branch_y.append(sorted_segs[0].y0)
+        branch_z.append(sorted_segs[0].z0)
+        branch_colors.append(sorted_segs[0].trait0)
+
+        # End vertices
+        for s in sorted_segs:
+            branch_x.append(s.x1)
+            branch_y.append(s.y1)
+            branch_z.append(s.z1)
+            branch_colors.append(s.trait1)
+
+        # Disconnect line from next branch
+        branch_x.append(None)
+        branch_y.append(None)
+        branch_z.append(None)
+        branch_colors.append(sorted_segs[-1].trait1)
+
+    centerline_before_meshes = (
+        bool(show_mesh and plot_data.segments) and mesh_opacity < 1.0
+    )
+
+    def _add_centerline_trace() -> None:
+        if centerline_color == "trait":
+            line_cfg = dict(
+                color=branch_colors,
+                colorscale=plot_data.colorscale,
+                cmin=trait_cmin,
+                cmax=trait_cmax,
+                reversescale=reverse_colorscale,
+                width=branch_width,
+            )
+        elif centerline_color == "dark":
+            line_cfg = dict(
+                color="#2b2b2b",
+                width=branch_width,
+            )
+        else:
+            line_cfg = dict(
+                color=centerline_color,
+                width=branch_width,
+            )
+
+        trace_kwargs: Dict[str, Any] = dict(
+            x=branch_x,
+            y=branch_y,  # Y is TRAIT
+            z=branch_z,  # Z is TIME
+            mode="lines",
+            line=line_cfg,
+            hoverinfo="skip",
+            name="Branch Centerlines",
+            showlegend=False,
+        )
+        if centerline_before_meshes:
+            trace_kwargs["opacity"] = mesh_opacity
+        fig.add_trace(go.Scatter3d(**trace_kwargs))
+
+    if show_centerline and branch_x and centerline_before_meshes:
+        _add_centerline_trace()
+
     # 1. Build continuous curtain mesh surfaces (Mesh3d)
     is_transformed = (plot_data.trait_display_range is not None) or (plot_data.trait_display_offset is not None)
     colorbar_title = "Trait Value"
@@ -732,76 +824,12 @@ def build_figure(
                 )
                 colorbar_attached = True
 
-    # 2. Build branch top centerline outlines (Scatter3d lines)
-    branch_x: List[Optional[float]] = []
-    branch_y: List[Optional[float]] = []
-    branch_z: List[Optional[float]] = []
-    branch_colors: List[Optional[float]] = []
-
-    edge_map: Dict[tuple, List[EdgeSegment]] = {}
-    for seg in plot_data.segments:
-        key = (seg.parent_id, seg.child_id)
-        if key not in edge_map:
-            edge_map[key] = []
-        edge_map[key].append(seg)
-
-    for (p_id, c_id), segs in edge_map.items():
-        sorted_segs = sorted(segs, key=lambda s: s.segment_index)
-        if not sorted_segs:
-            continue
-
-        # Start vertex
-        branch_x.append(sorted_segs[0].x0)
-        branch_y.append(sorted_segs[0].y0)
-        branch_z.append(sorted_segs[0].z0)
-        branch_colors.append(sorted_segs[0].trait0)
-
-        # End vertices
-        for s in sorted_segs:
-            branch_x.append(s.x1)
-            branch_y.append(s.y1)
-            branch_z.append(s.z1)
-            branch_colors.append(s.trait1)
-
-        # Disconnect line from next branch
-        branch_x.append(None)
-        branch_y.append(None)
-        branch_z.append(None)
-        branch_colors.append(sorted_segs[-1].trait1)
-
-    if show_centerline and branch_x:
-        if centerline_color == "trait":
-            line_cfg = dict(
-                color=branch_colors,
-                colorscale=plot_data.colorscale,
-                cmin=trait_cmin,
-                cmax=trait_cmax,
-                reversescale=reverse_colorscale,
-                width=branch_width,
-            )
-        elif centerline_color == "dark":
-            line_cfg = dict(
-                color="#2b2b2b",
-                width=branch_width,
-            )
-        else:
-            line_cfg = dict(
-                color=centerline_color,
-                width=branch_width,
-            )
-
-        fig.add_trace(
-            go.Scatter3d(
-                x=branch_x,
-                y=branch_y,  # Y is TRAIT
-                z=branch_z,  # Z is TIME
-                mode="lines",
-                line=line_cfg,
-                hoverinfo="skip",
-                name="Branch Centerlines",
-                showlegend=False,
-            )
-        )
+    # 2. Branch top centerline outlines (Scatter3d lines) -- legacy append.
+    #    When the legacy opaque ordering applies, the trace is appended here,
+    #    after the curtain meshes (see block 0 for the transparent-curtain
+    #    ordering where the trace is inserted before the meshes).
+    if show_centerline and branch_x and not centerline_before_meshes:
+        _add_centerline_trace()
 
     # 3. Ancestral Internal Nodes trace (Visible when show_node_markers=True, hoverable via invisible markers when False)
     internal_nodes = [n for n in plot_data.nodes.values() if not n.is_tip]

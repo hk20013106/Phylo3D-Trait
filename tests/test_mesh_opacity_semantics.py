@@ -247,7 +247,14 @@ def test_mesh_opacity_bounds_inclusive():
 # TEST C5 (kept): non-curtain traces unaffected by opacity                    #
 # --------------------------------------------------------------------------- #
 def test_c5_non_mesh_traces_unaffected_by_opacity():
-    """TEST C5: labels, hover traces and centerline keep their own opacity."""
+    """TEST C5: labels, hover traces and the centerline keep their own styling.
+
+    Updated contract (centerline transparency round): the Branch Centerlines
+    geometry, colors and text are still opacity-independent, but at mesh
+    opacity < 1.0 the trace deliberately carries the same standard opacity so
+    foreground curtains can blend over background centerlines (see
+    tests/test_centerline_transparency.py TEST CL1-CL10).
+    """
     plot_data = _plot_data()
     figs = {
         opacity: build_figure(plot_data, mesh_opacity=opacity)
@@ -260,13 +267,23 @@ def test_c5_non_mesh_traces_unaffected_by_opacity():
     baseline_labels = trace(figs[1.0], "Species Labels").to_plotly_json()
     baseline_tips = trace(figs[1.0], "Terminal Taxa").to_plotly_json()
     baseline_internal = trace(figs[1.0], "Internal Nodes").to_plotly_json()
-    baseline_line = trace(figs[1.0], "Branch Centerlines").to_plotly_json()
 
     for opacity, fig in figs.items():
         assert trace(fig, "Species Labels").to_plotly_json() == baseline_labels
         assert trace(fig, "Terminal Taxa").to_plotly_json() == baseline_tips
         assert trace(fig, "Internal Nodes").to_plotly_json() == baseline_internal
-        assert trace(fig, "Branch Centerlines").to_plotly_json() == baseline_line
+
+    # Centerline: identical geometry and colors; standard opacity passthrough.
+    baseline_line = trace(figs[1.0], "Branch Centerlines").to_plotly_json()
+    assert baseline_line.get("opacity") in (None, 1.0)
+    for opacity, fig in figs.items():
+        line = trace(fig, "Branch Centerlines").to_plotly_json()
+        for key in ("x", "y", "z", "line", "mode", "name"):
+            assert line[key] == baseline_line[key]
+        if opacity < 1.0:
+            assert line["opacity"] == pytest.approx(opacity)
+        else:
+            assert line.get("opacity") in (None, 1.0)
 
     # Hover markers remain invisible-but-hoverable regardless of mesh opacity.
     for fig in figs.values():
