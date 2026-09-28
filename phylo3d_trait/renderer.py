@@ -173,7 +173,15 @@ TIP_LABEL_CAMERA_ANCHOR_POST_SCRIPT = """/* Phylo3D tip-label camera anchor + tr
             if (order[c] !== idxs[c]) { same = false; break; }
         }
         if (same) { return; }
-        Plotly.moveTraces(gd, order, idxs);
+        // Build destination array: for each trace in idxs (current order),
+        // find its absolute target position in gd.data.
+        // Curtains occupy contiguous slots starting at idxs[0].
+        var dest = [];
+        for (var d = 0; d < idxs.length; d++) {
+            var rank = order.indexOf(idxs[d]);
+            dest.push(idxs[rank]);
+        }
+        Plotly.moveTraces(gd, idxs, dest);
     }
     function applyCameraResponse(gd, preferLive, doSort) {
         applyTipLabelSide(gd, preferLive);

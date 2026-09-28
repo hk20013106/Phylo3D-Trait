@@ -219,7 +219,7 @@ def test_l2_camera_hook_touches_only_textposition_and_curtain_order():
     # (draw order only; the trace payloads themselves are never modified).
     assert script.count("Plotly.moveTraces(") == 1
     assert "if (gd.data[i].type === 'mesh3d') { idxs.push(i); }" in script
-    assert "Plotly.moveTraces(gd, order, idxs);" in script
+    assert "Plotly.moveTraces(gd, idxs, dest);" in script
 
     # No coordinate / font / text mutation of any kind.
     assert "Plotly.relayout" not in script
