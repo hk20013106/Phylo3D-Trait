@@ -17,7 +17,11 @@ from __future__ import annotations
 
 import pytest
 from phylo3d_trait.models import PlotData
-from phylo3d_trait.renderer import build_figure, build_plot_data
+from phylo3d_trait.renderer import (
+    DEFAULT_TIP_LABEL_OFFSET_FRACTION,
+    build_figure,
+    build_plot_data,
+)
 from phylo3d_trait.tree import annotate_tree, compute_stable_node_id, parse_tree
 
 
@@ -188,7 +192,7 @@ def test_8_offset_zero_or_none_backward_compatible():
 
 
 def test_9_species_label_regression():
-    """TEST 9: Species labels remain anchored at present time (Z=0) and baseline Y=0 with font size 12."""
+    """TEST 9: Species labels stay fixed on the present side (one common Z <= 0) at baseline Y=0, font size 12."""
     tree_str = "(A:10,B:10);"
     tree = parse_tree(tree_str)
     id_root = compute_stable_node_id(["A", "B"])
@@ -198,7 +202,12 @@ def test_9_species_label_regression():
     fig = build_figure(plot_data, baseline_y=0.0)
 
     species_trace = [t for t in fig.data if t.name == "Species Labels"][0]
-    assert all(z == pytest.approx(0.0) for z in species_trace.z)
+    assert len(set(species_trace.z)) == 1
+    assert species_trace.z[0] <= 0.0
+    span = plot_data.time_max - plot_data.time_min
+    assert 0.0 - species_trace.z[0] == pytest.approx(
+        DEFAULT_TIP_LABEL_OFFSET_FRACTION * span
+    )
     assert all(y == pytest.approx(0.0) for y in species_trace.y)
     assert species_trace.textfont.size == 12
     assert species_trace.hoverinfo == "skip"

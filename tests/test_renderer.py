@@ -3,7 +3,11 @@
 import pytest
 import plotly.graph_objects as go
 
-from phylo3d_trait.renderer import build_figure, build_plot_data
+from phylo3d_trait.renderer import (
+    DEFAULT_TIP_LABEL_OFFSET_FRACTION,
+    build_figure,
+    build_plot_data,
+)
 from phylo3d_trait.tree import compute_stable_node_id, parse_tree
 
 
@@ -202,7 +206,7 @@ def test_elife_camera_preset():
 
 
 def test_species_labels_fixed_at_present_side():
-    """TEST 1 (Goal 1): All species labels must have Z == time_min (present time 0.0), never drifting."""
+    """TEST 1 (Goal 1): All species labels stay fixed on the present side (single common Z <= time_min)."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -226,7 +230,14 @@ def test_species_labels_fixed_at_present_side():
     assert len(label_traces) == 1
     label_trace = label_traces[0]
 
-    assert all(z == pytest.approx(plot_data.time_min) for z in label_trace.z)
+    # All labels share one fixed present-side anchor, pushed outward beyond the
+    # present plane by the generic fraction of the time span (never drifting).
+    assert len(set(label_trace.z)) == 1
+    assert label_trace.z[0] <= plot_data.time_min
+    span = plot_data.time_max - plot_data.time_min
+    assert plot_data.time_min - label_trace.z[0] == pytest.approx(
+        DEFAULT_TIP_LABEL_OFFSET_FRACTION * span
+    )
     assert plot_data.time_min == pytest.approx(0.0)
 
 
@@ -528,9 +539,10 @@ def test_previous_pr1_features_no_regression():
     assert line.line.reversescale is True
     assert line.line.colorscale is not None
 
-    # Species Labels trace present and anchored at time_min (0.0)
+    # Species Labels trace present, fixed on the present side (single common Z <= time_min)
     label_traces = [t for t in fig.data if t.name == "Species Labels"]
     assert len(label_traces) == 1
-    assert all(z == pytest.approx(0.0) for z in label_traces[0].z)
+    assert len(set(label_traces[0].z)) == 1
+    assert label_traces[0].z[0] <= plot_data.time_min
     assert list(label_traces[0].text) == ["A", "B", "C", "D"]
 

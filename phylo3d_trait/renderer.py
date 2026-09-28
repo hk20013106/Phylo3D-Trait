@@ -9,7 +9,8 @@ Visual representations:
 - Continuous vertical curtain / ribbon surfaces (Mesh3d) descending from each
   branch's trait height down to a common trait baseline plane.
 - Crisp branch top outlines (Scatter3d lines).
-- Fixed text labels for terminal taxa anchored on present time (Z = 0) baseline plane.
+- Fixed text labels for terminal taxa anchored just outside the present time
+  (Z = time_min) baseline plane, extending outward from each tip.
 - Pure white / transparent background with clean axis gridlines.
 - eLife-style camera preset with screen-vertical Y (Trait) and +Z foreground (MRCA).
 - Global trait normalization with optional independent color reversal and
@@ -47,6 +48,12 @@ CAMERA_PRESETS: Dict[str, Dict[str, Any]] = {
         projection=dict(type="orthographic"),
     ),
 }
+
+# Generic default outward offset for terminal species labels, expressed as a
+# fraction of the Time-before-present span. Because Plotly normalizes scene
+# aspects per axis, a fraction of the span is scale-free: it adapts to any
+# phylogeny without hard-coded absolute distances.
+DEFAULT_TIP_LABEL_OFFSET_FRACTION = 0.03
 
 
 def build_plot_data(
@@ -330,6 +337,8 @@ def build_figure(
     custom_camera: Optional[Dict[str, Any]] = None,
     reverse_colorscale: bool = False,
     curtain_color_mode: str = "height",
+    trait_axis_scale: float = 1.0,
+    tip_label_offset: Optional[float] = None,
 ) -> go.Figure:
     """Construct an interactive Plotly 3D Figure in clean publication style with eLife-style camera.
 
@@ -337,7 +346,7 @@ def build_figure(
         plot_data: PlotData containing annotated nodes, edge segments, and scaling limits.
         title: Optional title override.
         branch_width: Line width for 3D branch top outline (default: 1.0).
-        show_tip_labels: Whether to display text labels for tip taxa at present baseline plane (default: True).
+        show_tip_labels: Whether to display text labels for tip taxa on the present baseline plane, extending outward from each tip (default: True).
         aspect_ratio: Optional custom aspect ratio dictionary {'x': float, 'y': float, 'z': float}.
         show_mesh: Whether to render continuous vertical curtain meshes.
         mesh_opacity: Opacity for curtain meshes (0.0 to 1.0, default 1.0).
@@ -355,11 +364,46 @@ def build_figure(
         curtain_color_mode: 'height' (default) colors curtains by geometric
             Y height; 'branch' projects each local branch trait color vertically
             to the baseline.
+        trait_axis_scale: Visual aspect scale factor for the Trait (Y) dimension
+            only (default: 1.0). Purely visual: it multiplies the scene Trait
+            aspect ratio and changes nothing else (no trait values, ticks,
+            hover, color domain, time or tree-layout geometry). Example: 0.5
+            halves the Trait visual height. Must be finite and > 0.
+        tip_label_offset: Outward offset of terminal species labels beyond the
+            present plane (``time_min``), expressed as a fraction of the
+            Time-before-present span. ``None`` (default) uses
+            ``DEFAULT_TIP_LABEL_OFFSET_FRACTION`` (0.03). 0.0 keeps labels
+            exactly on the present plane. Must be finite and >= 0.
 
     Returns:
         Plotly go.Figure configured for interactive 3D display.
     """
     plot_title = title if title is not None else plot_data.title
+
+    try:
+        trait_axis_scale = float(trait_axis_scale)
+    except (TypeError, ValueError) as err:
+        raise ValueError(
+            f"trait_axis_scale must be a finite positive number, got {trait_axis_scale!r}"
+        ) from err
+    if not math.isfinite(trait_axis_scale) or trait_axis_scale <= 0:
+        raise ValueError(
+            f"trait_axis_scale must be a finite positive number, got {trait_axis_scale!r}"
+        )
+
+    if tip_label_offset is not None:
+        try:
+            tip_label_offset = float(tip_label_offset)
+        except (TypeError, ValueError) as err:
+            raise ValueError(
+                "tip_label_offset must be a finite non-negative fraction of the "
+                f"Time-before-present span, got {tip_label_offset!r}"
+            ) from err
+        if not math.isfinite(tip_label_offset) or tip_label_offset < 0:
+            raise ValueError(
+                "tip_label_offset must be a finite non-negative fraction of the "
+                f"Time-before-present span, got {tip_label_offset!r}"
+            )
 
     eff_baseline_y = baseline_y if baseline_y is not None else plot_data.baseline_y
     if eff_baseline_y is None:
@@ -653,17 +697,34 @@ def build_figure(
             )
         )
 
-    # 5. Fixed Terminal Species Labels trace (anchored strictly at present time Z = time_min / 0.0, constant baseline Y)
+    # 5. Fixed Terminal Species Labels trace (anchored strictly at present time
+    #    Z = time_min / 0.0, constant baseline Y).
+    #    Labels are pushed outward beyond the present plane (away from the tree
+    #    body) by a generic fraction of the Time-before-present span, so the tip
+    #    corresponds to the tree-facing end of the text rather than to its center.
+    #    textposition='middle right' keeps the text body extending outward from
+    #    that anchor. World coordinates are fixed: labels are never repositioned
+    #    by camera changes or browser events.
     if tip_nodes and show_tip_labels:
         sorted_tips = sorted(tip_nodes, key=lambda n: n.x)
+        time_span = abs(plot_data.time_max - plot_data.time_min)
+        offset_fraction = (
+            DEFAULT_TIP_LABEL_OFFSET_FRACTION
+            if tip_label_offset is None
+            else tip_label_offset
+        )
+        # The tree body extends from time_min (present) toward time_max (root),
+        # so the outward direction beyond the present plane is away from the root.
+        outward_sign = -1.0 if plot_data.time_max >= plot_data.time_min else 1.0
+        label_time = plot_data.time_min + outward_sign * offset_fraction * time_span
         fig.add_trace(
             go.Scatter3d(
                 x=[n.x for n in sorted_tips],
                 y=[eff_baseline_y for _ in sorted_tips],
-                z=[plot_data.time_min for _ in sorted_tips],
+                z=[label_time for _ in sorted_tips],
                 mode="text",
                 text=[n.label for n in sorted_tips],
-                textposition="bottom center",
+                textposition="middle right",
                 textfont=dict(size=12, color="#222222"),
                 hoverinfo="skip",
                 name="Species Labels",
@@ -687,14 +748,18 @@ def build_figure(
         spikecolor="#999999",
     )
 
-    # Calculate default balanced manual aspect ratio
+    # Calculate default balanced manual aspect ratio.
+    # trait_axis_scale multiplies ONLY the Trait (Y) dimension of the existing
+    # aspect-ratio engine; Time (Z) and Tree Layout (X) visual aspects are
+    # untouched, and no scientific coordinate is transformed.
     if aspect_ratio is None:
         ratio_x = 1.4
         ratio_y = 1.0
         ratio_z = 1.2
         ratio_dict = dict(x=ratio_x, y=ratio_y, z=ratio_z)
     else:
-        ratio_dict = aspect_ratio
+        ratio_dict = dict(aspect_ratio)
+    ratio_dict["y"] = float(ratio_dict.get("y", 1.0)) * trait_axis_scale
 
     # Background colors
     is_transparent = background.lower() == "transparent"

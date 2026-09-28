@@ -4,7 +4,12 @@ import pytest
 import plotly.graph_objects as go
 
 from phylo3d_trait.models import PlotData
-from phylo3d_trait.renderer import build_figure, build_plot_data, _generate_rescaled_ticks
+from phylo3d_trait.renderer import (
+    DEFAULT_TIP_LABEL_OFFSET_FRACTION,
+    build_figure,
+    build_plot_data,
+    _generate_rescaled_ticks,
+)
 from phylo3d_trait.tree import annotate_tree, compute_stable_node_id, parse_tree
 
 
@@ -321,7 +326,12 @@ def test_tip_labels_on_tree_layout_axis_with_rescaling():
     assert species_trace.mode == "text"
     assert list(species_trace.x) == [plot_data.nodes["A"].x, plot_data.nodes["B"].x]
     assert list(species_trace.text) == ["A", "B"]
-    assert all(z == pytest.approx(plot_data.time_min) for z in species_trace.z)
+    assert len(set(species_trace.z)) == 1
+    assert species_trace.z[0] <= plot_data.time_min
+    span = plot_data.time_max - plot_data.time_min
+    assert plot_data.time_min - species_trace.z[0] == pytest.approx(
+        DEFAULT_TIP_LABEL_OFFSET_FRACTION * span
+    )
     assert all(y == pytest.approx(plot_data.baseline_y) for y in species_trace.y)
     assert species_trace.hoverinfo == "skip"
     assert species_trace.textfont.size == 12

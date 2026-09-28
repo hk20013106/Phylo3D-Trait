@@ -8,6 +8,7 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -15,6 +16,32 @@ from phylo3d_trait.io import load_trait_values
 from phylo3d_trait.renderer import build_figure, build_plot_data
 from phylo3d_trait.template import generate_template_csv
 from phylo3d_trait.tree import parse_tree
+
+
+def _positive_finite_float(value: str) -> float:
+    """Argparse type: strictly positive finite float, rejected loudly otherwise."""
+    try:
+        parsed = float(value)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid number") from err
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is invalid: value must be a finite number > 0"
+        )
+    return parsed
+
+
+def _non_negative_finite_float(value: str) -> float:
+    """Argparse type: finite float >= 0, rejected loudly otherwise."""
+    try:
+        parsed = float(value)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid number") from err
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is invalid: value must be a finite number >= 0"
+        )
+    return parsed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -79,6 +106,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plot_parser.add_argument(
         "--opacity", type=float, default=1.0, help="Opacity for curtain meshes (0.0 - 1.0, default: 1.0)"
+    )
+    plot_parser.add_argument(
+        "--trait-axis-scale", type=_positive_finite_float, default=1.0,
+        help=(
+            "Visual scale factor for the Trait (Y) axis aspect ratio only (default: 1.0). "
+            "Purely visual: scientific trait values, ticks, hover values, colors, "
+            "time-before-present and tree-layout geometry are unchanged. "
+            "e.g. 0.5 halves the Trait visual height."
+        )
+    )
+    plot_parser.add_argument(
+        "--tip-label-offset", type=_non_negative_finite_float, default=None,
+        help=(
+            "Outward offset of terminal species labels beyond the present plane, "
+            "as a fraction of the Time-before-present span (default: 0.03). "
+            "0.0 keeps labels exactly on the present plane."
+        )
     )
     plot_parser.add_argument(
         "--no-mesh", action="store_true", help="Disable continuous curtain mesh surfaces"
@@ -163,6 +207,8 @@ def run_plot(args: argparse.Namespace) -> int:
             camera_preset=args.camera_preset,
             reverse_colorscale=args.reverse_colorscale,
             curtain_color_mode=args.curtain_color_mode,
+            trait_axis_scale=args.trait_axis_scale,
+            tip_label_offset=args.tip_label_offset,
         )
         fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
         print(f"Successfully generated 3D phylogenetic visualization: {out_path}")
