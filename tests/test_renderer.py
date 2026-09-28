@@ -452,20 +452,22 @@ def test_geometry_regression():
     fig_labels = build_figure(plot_data, show_tip_labels=True)
     fig_nolabels = build_figure(plot_data, show_tip_labels=False)
 
-    mesh_a = [t for t in fig_labels.data if t.name == "Branch Curtains"][0]
-    mesh_b = [t for t in fig_nolabels.data if t.name == "Branch Curtains"][0]
+    mesh_a = [t for t in fig_labels.data if getattr(t, "type", None) == "mesh3d"]
+    mesh_b = [t for t in fig_nolabels.data if getattr(t, "type", None) == "mesh3d"]
+    assert len(mesh_a) == len(mesh_b) == 6  # one curtain trace per biological edge
 
     line_a = [t for t in fig_labels.data if t.name == "Branch Centerlines"][0]
     line_b = [t for t in fig_nolabels.data if t.name == "Branch Centerlines"][0]
 
-    # Mesh geometry strictly identical
-    assert list(mesh_a.x) == list(mesh_b.x)
-    assert list(mesh_a.y) == list(mesh_b.y)
-    assert list(mesh_a.z) == list(mesh_b.z)
-    assert list(mesh_a.i) == list(mesh_b.i)
-    assert list(mesh_a.j) == list(mesh_b.j)
-    assert list(mesh_a.k) == list(mesh_b.k)
-    assert list(mesh_a.intensity) == list(mesh_b.intensity)
+    # Mesh geometry strictly identical per edge (visible labels never touch geometry)
+    for mesh_edge_a, mesh_edge_b in zip(mesh_a, mesh_b):
+        assert list(mesh_edge_a.x) == list(mesh_edge_b.x)
+        assert list(mesh_edge_a.y) == list(mesh_edge_b.y)
+        assert list(mesh_edge_a.z) == list(mesh_edge_b.z)
+        assert list(mesh_edge_a.i) == list(mesh_edge_b.i)
+        assert list(mesh_edge_a.j) == list(mesh_edge_b.j)
+        assert list(mesh_edge_a.k) == list(mesh_edge_b.k)
+        assert list(mesh_edge_a.intensity) == list(mesh_edge_b.intensity)
 
     # Line geometry strictly identical
     assert list(line_a.x) == list(line_b.x)
@@ -532,7 +534,7 @@ def test_previous_pr1_features_no_regression():
         show_tip_labels=True,
     )
 
-    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
     line = [t for t in fig.data if t.name == "Branch Centerlines"][0]
 
     assert mesh.reversescale is True

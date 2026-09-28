@@ -48,7 +48,7 @@ def _aspect(fig):
 
 
 def _mesh(fig):
-    return [t for t in fig.data if t.name == "Branch Curtains"][0]
+    return [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
 
 
 def test_b1_default_scale():

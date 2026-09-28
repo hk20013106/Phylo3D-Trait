@@ -119,6 +119,65 @@ def test_cli_opacity_options(tmp_path: Path):
     assert '"opacity":1.0' in content or '"opacity": 1.0' in content or '"opacity":1' in content
 
 
+def test_cli_opacity_accepts_standard_fraction(tmp_path: Path):
+    """Standard opacity semantics: --opacity 0.9 == 90% opaque reaches the mesh."""
+    repo_root = Path(__file__).parent.parent
+    tree_file = repo_root / "examples" / "example1" / "tree.nwk"
+    values_file = repo_root / "examples" / "example1" / "node_values.csv"
+    out_html = tmp_path / "opacity09_plot.html"
+
+    code = main([
+        "plot",
+        "--tree", str(tree_file),
+        "--values", str(values_file),
+        "--output", str(out_html),
+        "--opacity", "0.9",
+    ])
+    assert code == 0
+    content = out_html.read_text(encoding="utf-8")
+    assert '"opacity":0.9' in content or '"opacity": 0.9' in content
+
+
+@pytest.mark.parametrize("bad", ["-0.1", "1.1", "nan", "inf", "-inf"])
+def test_cli_opacity_rejects_invalid_values(tmp_path: Path, bad: str):
+    """--opacity must be finite and within 0.0..1.0; rejected loudly, never clamped."""
+    repo_root = Path(__file__).parent.parent
+    tree_file = repo_root / "examples" / "example1" / "tree.nwk"
+    values_file = repo_root / "examples" / "example1" / "node_values.csv"
+    out_html = tmp_path / f"bad_opacity_{bad.replace('-', 'm').replace('.', '_')}.html"
+
+    with pytest.raises(SystemExit):
+        main([
+            "plot",
+            "--tree", str(tree_file),
+            "--values", str(values_file),
+            "--output", str(out_html),
+            "--opacity", bad,
+        ])
+    assert not out_html.exists()
+
+
+def test_cli_embeds_tip_label_camera_anchor_post_script(tmp_path: Path):
+    """The generated HTML embeds the camera-aware text-anchor flip hook."""
+    repo_root = Path(__file__).parent.parent
+    tree_file = repo_root / "examples" / "example1" / "tree.nwk"
+    values_file = repo_root / "examples" / "example1" / "node_values.csv"
+    out_html = tmp_path / "anchor_hook.html"
+
+    code = main([
+        "plot",
+        "--tree", str(tree_file),
+        "--values", str(values_file),
+        "--output", str(out_html),
+    ])
+    assert code == 0
+    content = out_html.read_text(encoding="utf-8")
+    assert "Phylo3D tip-label camera anchor" in content
+    assert "applyTipLabelSide" in content
+    assert "plotly_relayouting" in content
+    assert "{plot_id}" not in content
+
+
 def test_example2_tree_and_traits_properties():
     """Verify Example 2 tree structure, 6 taxa, and supplied trait bounds [1, 5]."""
     repo_root = Path(__file__).parent.parent
@@ -158,11 +217,11 @@ def test_example2_baseline_zero_geometry_and_color_range():
 
     fig = build_figure(plot_data, baseline_y=0.0)
     mesh_traces = [t for t in fig.data if isinstance(t, go.Mesh3d) or getattr(t, "type", None) == "mesh3d"]
-    assert len(mesh_traces) == 1
-    mesh = mesh_traces[0]
-
-    assert mesh.cmin == pytest.approx(0.0)
-    assert mesh.cmax == pytest.approx(5.0)
+    expected_edges = len({(s.parent_id, s.child_id) for s in plot_data.segments})
+    assert len(mesh_traces) == expected_edges
+    for mesh in mesh_traces:
+        assert mesh.cmin == pytest.approx(0.0)
+        assert mesh.cmax == pytest.approx(5.0)
 
     mesh_x, mesh_y, mesh_z, mesh_i, mesh_j, mesh_k, mesh_intensity = _build_branch_curtains_geometry(
         plot_data, baseline_y=0.0
@@ -217,7 +276,7 @@ def test_example2_cli_end_to_end(tmp_path: Path):
     content = out_html.read_text(encoding="utf-8")
     assert '"cmin":0.0' in content or '"cmin": 0.0' in content
     assert '"cmax":5.0' in content or '"cmax": 5.0' in content
-    assert "Branch Curtains" in content
+    assert "Branch Curtain:" in content
     assert "Species Labels" in content
 
 

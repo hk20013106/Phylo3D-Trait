@@ -159,22 +159,23 @@ def test_source_range_from_nodes_only_not_baseline():
 
     fig = build_figure(plot_data, baseline_y=0.0)
 
-    # Check Mesh3d trace
+    # Check Mesh3d traces (one per biological edge, Example-1 tree has 2 edges)
     mesh_traces = [t for t in fig.data if isinstance(t, go.Mesh3d) or getattr(t, "type", None) == "mesh3d"]
-    assert len(mesh_traces) == 1
-    mesh = mesh_traces[0]
+    assert len(mesh_traces) == 2
 
-    # Vertex Y values should have min == 0.0 and max == 13.0
-    assert min(mesh.y) == pytest.approx(0.0)
-    assert max(mesh.y) == pytest.approx(13.0)
+    # Vertex Y values should have min == 0.0 and max == 13.0 across all curtains
+    all_mesh_y = [y for mesh in mesh_traces for y in mesh.y]
+    assert min(all_mesh_y) == pytest.approx(0.0)
+    assert max(all_mesh_y) == pytest.approx(13.0)
 
-    # Color range should be [0.0, 13.0]
-    assert mesh.cmin == pytest.approx(0.0)
-    assert mesh.cmax == pytest.approx(13.0)
+    for mesh in mesh_traces:
+        # Color range should be [0.0, 13.0]
+        assert mesh.cmin == pytest.approx(0.0)
+        assert mesh.cmax == pytest.approx(13.0)
 
-    # Invariant: mesh vertex intensity strictly equals vertex Y
-    for y_val, intensity_val in zip(mesh.y, mesh.intensity):
-        assert intensity_val == pytest.approx(y_val)
+        # Invariant: mesh vertex intensity strictly equals vertex Y
+        for y_val, intensity_val in zip(mesh.y, mesh.intensity):
+            assert intensity_val == pytest.approx(y_val)
 
 
 def test_axis_and_colorbar_presentation_labels():
@@ -212,7 +213,7 @@ def test_axis_and_colorbar_presentation_labels():
     assert yaxis.ticktext[5] == "5.5269"   # display Y=13.0 -> raw 5.5269
 
     # 2. Colorbar checks
-    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
     cb = mesh.colorbar
     assert cb.title.text == "Trait Value"
     assert cb.tickmode == "array"
@@ -253,7 +254,7 @@ def test_branch_color_mode_keeps_baseline_tick_off_colorbar():
     )
 
     yaxis = fig.layout.scene.yaxis
-    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
 
     # Baseline remains visible as geometry on the Y axis.
     assert list(yaxis.tickvals)[0] == pytest.approx(0.0)
@@ -289,7 +290,7 @@ def test_custom_baseline_raw_value_option():
     yaxis = fig.layout.scene.yaxis
     assert yaxis.ticktext[0] == "15.5"
 
-    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
     assert mesh.colorbar.ticktext[0] == "15.5"
 
 
@@ -337,5 +338,5 @@ def test_tip_labels_on_tree_layout_axis_with_rescaling():
     assert species_trace.textfont.size == 12
 
     # Verify mesh opacity is 1.0
-    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+    mesh = [t for t in fig.data if getattr(t, "type", None) == "mesh3d"][0]
     assert mesh.opacity == 1.0

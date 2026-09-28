@@ -170,18 +170,18 @@ def test_mesh_color_range_matches_y_bounds():
     fig = build_figure(plot_data)
 
     mesh_traces = [t for t in fig.data if isinstance(t, go.Mesh3d) or getattr(t, "type", None) == "mesh3d"]
-    assert len(mesh_traces) == 1
-    mesh = mesh_traces[0]
-
-    assert mesh.cmin == pytest.approx(2.0)
-    assert mesh.cmax == pytest.approx(8.0)
+    assert len(mesh_traces) == 6  # one Mesh3d per biological parent->child edge
+    for mesh in mesh_traces:
+        assert mesh.cmin == pytest.approx(2.0)
+        assert mesh.cmax == pytest.approx(8.0)
 
     # 2. Custom baseline_y below trait_min (e.g., baseline_y = 0.0)
     fig_custom = build_figure(plot_data, baseline_y=0.0)
-    mesh_custom = [t for t in fig_custom.data if isinstance(t, go.Mesh3d) or getattr(t, "type", None) == "mesh3d"][0]
-
-    assert mesh_custom.cmin == pytest.approx(0.0)
-    assert mesh_custom.cmax == pytest.approx(8.0)
+    mesh_traces_custom = [t for t in fig_custom.data if isinstance(t, go.Mesh3d) or getattr(t, "type", None) == "mesh3d"]
+    assert len(mesh_traces_custom) == 6
+    for mesh_custom in mesh_traces_custom:
+        assert mesh_custom.cmin == pytest.approx(0.0)
+        assert mesh_custom.cmax == pytest.approx(8.0)
 
 
 def test_mesh_triangle_count_formula():
@@ -321,8 +321,9 @@ def test_default_mesh_opacity_is_fully_opaque():
     fig = build_figure(plot_data)
 
     mesh_traces = [t for t in fig.data if isinstance(t, go.Mesh3d) or getattr(t, "type", None) == "mesh3d"]
-    assert len(mesh_traces) == 1
-    assert mesh_traces[0].opacity == pytest.approx(1.0)
+    assert len(mesh_traces) == 2  # two biological edges
+    for mesh in mesh_traces:
+        assert mesh.opacity == pytest.approx(1.0)
 
 
 def test_custom_mesh_opacity_passed_correctly():
@@ -336,8 +337,9 @@ def test_custom_mesh_opacity_passed_correctly():
     fig = build_figure(plot_data, mesh_opacity=0.5)
 
     mesh_traces = [t for t in fig.data if isinstance(t, go.Mesh3d) or getattr(t, "type", None) == "mesh3d"]
-    assert len(mesh_traces) == 1
-    assert mesh_traces[0].opacity == pytest.approx(0.5)
+    assert len(mesh_traces) == 2  # two biological edges
+    for mesh in mesh_traces:
+        assert mesh.opacity == pytest.approx(0.5)
 
 
 def test_colorscale_is_fully_opaque():

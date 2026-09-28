@@ -13,7 +13,11 @@ import sys
 from pathlib import Path
 
 from phylo3d_trait.io import load_trait_values
-from phylo3d_trait.renderer import build_figure, build_plot_data
+from phylo3d_trait.renderer import (
+    TIP_LABEL_CAMERA_ANCHOR_POST_SCRIPT,
+    build_figure,
+    build_plot_data,
+)
 from phylo3d_trait.template import generate_template_csv
 from phylo3d_trait.tree import parse_tree
 
@@ -40,6 +44,19 @@ def _non_negative_finite_float(value: str) -> float:
     if not math.isfinite(parsed) or parsed < 0:
         raise argparse.ArgumentTypeError(
             f"{value!r} is invalid: value must be a finite number >= 0"
+        )
+    return parsed
+
+
+def _opacity_fraction(value: str) -> float:
+    """Argparse type: standard opacity in [0.0, 1.0], rejected loudly otherwise."""
+    try:
+        parsed = float(value)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid number") from err
+    if not math.isfinite(parsed) or parsed < 0.0 or parsed > 1.0:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is invalid: opacity must be a finite number between 0.0 and 1.0"
         )
     return parsed
 
@@ -105,7 +122,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Display offset subtracted from raw trait (display_trait = raw_trait - OFFSET). Maps raw trait = OFFSET to display Y = 0."
     )
     plot_parser.add_argument(
-        "--opacity", type=float, default=1.0, help="Opacity for curtain meshes (0.0 - 1.0, default: 1.0)"
+        "--opacity", type=_opacity_fraction, default=1.0,
+        help=(
+            "Standard opacity for curtain meshes (0.0 - 1.0, default: 1.0). "
+            "1.0 = fully opaque, 0.9 = 90% opaque (10% transparent), "
+            "0.7 = 70% opaque, 0.0 = fully transparent."
+        )
     )
     plot_parser.add_argument(
         "--trait-axis-scale", type=_positive_finite_float, default=1.0,
@@ -210,7 +232,12 @@ def run_plot(args: argparse.Namespace) -> int:
             trait_axis_scale=args.trait_axis_scale,
             tip_label_offset=args.tip_label_offset,
         )
-        fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
+        fig.write_html(
+            str(out_path),
+            include_plotlyjs="cdn",
+            full_html=True,
+            post_script=TIP_LABEL_CAMERA_ANCHOR_POST_SCRIPT,
+        )
         print(f"Successfully generated 3D phylogenetic visualization: {out_path}")
         return 0
     except Exception as e:

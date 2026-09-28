@@ -7,10 +7,15 @@ Builds interactive 3D WebGL plots mapping:
 
 Visual representations:
 - Continuous vertical curtain / ribbon surfaces (Mesh3d) descending from each
-  branch's trait height down to a common trait baseline plane.
+  branch's trait height down to a common trait baseline plane. Each biological
+  parent->child edge gets its own Mesh3d trace so that, with opacity < 1.0,
+  WebGL can depth-order the overlapping transparent ribbons safely (all traces
+  share one global color domain and exactly one colorbar).
 - Crisp branch top outlines (Scatter3d lines).
 - Fixed text labels for terminal taxa anchored just outside the present time
-  (Z = time_min) baseline plane, extending outward from each tip.
+  (Z = time_min) baseline plane, extending outward from each tip. World
+  coordinates are fixed; the interactive HTML flips only the text anchor
+  (middle right <-> middle left) when the camera orbits to the opposite side.
 - Pure white / transparent background with clean axis gridlines.
 - eLife-style camera preset with screen-vertical Y (Trait) and +Z foreground (MRCA).
 - Global trait normalization with optional independent color reversal and
@@ -54,6 +59,141 @@ CAMERA_PRESETS: Dict[str, Dict[str, Any]] = {
 # aspects per axis, a fraction of the span is scale-free: it adapts to any
 # phylogeny without hard-coded absolute distances.
 DEFAULT_TIP_LABEL_OFFSET_FRACTION = 0.03
+
+# Minimal camera-aware hook embedded into the generated interactive HTML.
+#
+# Species labels keep their exact world coordinates (x, y, z) at all times.
+# Only the Scatter3d text anchor may switch between 'middle right' and
+# 'middle left', because textposition is a screen-space (billboard) property:
+# at the default eLife camera the tree-outward direction (beyond the present
+# plane, world -Z) projects to screen-right, so text must hang right of its
+# anchor; after orbiting to the opposite side it projects to screen-left, so
+# the same text must hang left, otherwise it would extend into the tree.
+#
+# The sign of the outward direction's screen-x component is the sign of
+# (eye.x - center.x) for a lookAt camera with world up (0, 1, 0) (see
+# tests/test_tip_label_outward.py::test_l3_l4_* for the derivation).
+# The hook listens to plotly.js gl3d camera events only and performs:
+#   1. a single textposition restyle of the Species Labels trace;
+#   2. a draw-order sort of the curtain Mesh3d traces (painter's algorithm,
+#      camera-nearest last) so transparent curtains composite correctly.
+# It never touches coordinates, text, fonts, scientific values or tip order.
+#
+# Camera-source notes (verified in a real browser):
+# - On 'plotly_relayout' (commit: mouse release or programmatic relayout) the
+#   layout camera is already updated, while the internal glplot camera may lag
+#   one frame; prefer the layout camera there.
+# - During a live drag, 'plotly_relayouting' fires before the layout camera is
+#   saved, so prefer the live glplot camera there.
+# - A one-frame requestAnimationFrame re-check converges regardless of event
+#   ordering and lets the curtain sort use the settled camera.
+#
+# Draw-order note (verified with pixel measurements): splitting the curtains
+# into one Mesh3d per edge is not enough on its own because plotly draws
+# transparent mesh traces strictly in trace order. Painter's back-to-front
+# order must be restored per camera: objects whose NEAREST point is farther
+# from the camera are drawn first, so the camera-nearest curtains are painted
+# last and dominate the alpha blend. This removed the "outer curtain almost
+# fully transparent" artifact in both tested opposite camera orientations.
+TIP_LABEL_CAMERA_ANCHOR_POST_SCRIPT = """/* Phylo3D tip-label camera anchor + transparent curtain draw order:
+   species labels keep fixed world coordinates (only the text anchor flips),
+   and curtain Mesh3d traces are repainted back-to-front for the current
+   camera so transparency compositing stays correct. */
+(function () {
+    function comp(vec, key) {
+        if (!vec) { return 0; }
+        if (typeof vec[key] === 'number') { return vec[key]; }
+        var idx = (key === 'x') ? 0 : (key === 'y') ? 1 : 2;
+        return (typeof vec[idx] === 'number') ? vec[idx] : 0;
+    }
+    function tipLabelSide(eyeX) {
+        return eyeX < 0 ? 'middle left' : 'middle right';
+    }
+    function readCamera(gd, preferLive) {
+        var scene = gd._fullLayout && gd._fullLayout.scene;
+        var state = scene && scene._scene;
+        var live = state && state.glplot && state.glplot.camera;
+        var layoutCam = scene && scene.camera;
+        var primary = preferLive ? (live || layoutCam) : (layoutCam || live);
+        var fallback = preferLive ? layoutCam : live;
+        var eye = (primary && primary.eye) || (fallback && fallback.eye);
+        var center = (primary && primary.center) || (fallback && fallback.center);
+        return { eye: eye, center: center };
+    }
+    function applyTipLabelSide(gd, preferLive) {
+        var idx = -1;
+        for (var i = 0; i < gd.data.length; i++) {
+            if (gd.data[i].name === 'Species Labels') { idx = i; break; }
+        }
+        if (idx < 0) { return; }
+        var cam = readCamera(gd, preferLive);
+        var eyeX = comp(cam.eye, 'x') - comp(cam.center, 'x');
+        var side = tipLabelSide(eyeX);
+        if (gd.data[idx].textposition !== side) {
+            Plotly.restyle(gd, {textposition: side}, [idx]);
+        }
+    }
+    function curtainTraceIndices(gd) {
+        var idxs = [];
+        for (var i = 0; i < gd.data.length; i++) {
+            if (gd.data[i].type === 'mesh3d') { idxs.push(i); }
+        }
+        return idxs;
+    }
+    function sortCurtainTraces(gd) {
+        if (typeof Plotly.moveTraces !== 'function') { return; }
+        var scene = gd._fullLayout && gd._fullLayout.scene;
+        var gl = scene && scene._scene && scene._scene.glplot;
+        if (!gl || !gl.camera || !gl.camera.matrix || !gl.objects) { return; }
+        var idxs = curtainTraceIndices(gd);
+        if (idxs.length < 2 || gl.objects.length !== gd.data.length) { return; }
+        var m = gl.camera.matrix;
+        var entries = [];
+        for (var k = 0; k < idxs.length; k++) {
+            var obj = gl.objects[idxs[k]];
+            var b = obj && obj.bounds;
+            if (!b || b.length !== 2) { return; }
+            // Depth (view-space z) of the object's NEAREST bounding-box corner.
+            var nearest = -Infinity;
+            for (var xi = 0; xi < 2; xi++) {
+                for (var yi = 0; yi < 2; yi++) {
+                    for (var zi = 0; zi < 2; zi++) {
+                        var depth = m[2] * b[xi][0] + m[6] * b[yi][1] + m[10] * b[zi][2] + m[14];
+                        if (depth > nearest) { nearest = depth; }
+                    }
+                }
+            }
+            entries.push({ trace: idxs[k], nearest: nearest });
+        }
+        entries.sort(function (a, b) { return a.nearest - b.nearest; });
+        var order = [];
+        for (var e = 0; e < entries.length; e++) { order.push(entries[e].trace); }
+        var same = true;
+        for (var c = 0; c < order.length; c++) {
+            if (order[c] !== idxs[c]) { same = false; break; }
+        }
+        if (same) { return; }
+        Plotly.moveTraces(gd, order, idxs);
+    }
+    function applyCameraResponse(gd, preferLive, doSort) {
+        applyTipLabelSide(gd, preferLive);
+        if (doSort) { sortCurtainTraces(gd); }
+    }
+    function scheduleCameraResponse(gd, preferLive, doSort) {
+        applyCameraResponse(gd, preferLive, doSort);
+        if (typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(function () {
+                applyCameraResponse(gd, preferLive, doSort);
+            });
+        }
+    }
+    var gd = document.getElementById('{plot_id}');
+    if (!gd) { return; }
+    gd.on('plotly_relayout', function () { scheduleCameraResponse(gd, false, true); });
+    gd.on('plotly_relayouting', function () { scheduleCameraResponse(gd, true, false); });
+    scheduleCameraResponse(gd, false, true);
+})();
+"""
 
 
 def build_plot_data(
@@ -107,31 +247,150 @@ def build_plot_data(
     return data
 
 
+def _build_single_edge_curtain_geometry(
+    branch_pts: List[Tuple[float, float, float]],
+    baseline_y: float,
+    curtain_color_mode: str = "height",
+) -> Tuple[List[float], List[float], List[float], List[int], List[int], List[int], List[float]]:
+    """Triangulate ONE biological parent->child edge into a curtain ribbon.
+
+    Vertices are interleaved as Top_k, Bottom_k along the sampled branch
+    points. Triangle indices are LOCAL to the returned arrays (0-based), so
+    the result can be used directly as a standalone Mesh3d trace.
+
+    For each adjacent step (k, k+1) two triangles are generated:
+        Triangle A: (Top_k, Bottom_k, Top_{k+1})
+        Triangle B: (Bottom_k, Bottom_{k+1}, Top_{k+1})
+
+    Args:
+        branch_pts: Sampled (x, y, z) points along this edge, in order.
+        baseline_y: The constant Y height of the baseline plane.
+        curtain_color_mode: 'height' keeps the historical vertical gradient
+            (vertex color intensity equals vertex Y); 'branch' projects the
+            local branch trait color vertically to the baseline.
+
+    Returns:
+        Tuple of (x, y, z, i, j, k, intensity) for this single edge.
+    """
+    x: List[float] = []
+    y: List[float] = []
+    z: List[float] = []
+    i: List[int] = []
+    j: List[int] = []
+    k: List[int] = []
+    intensity: List[float] = []
+
+    for xk, yk, zk in branch_pts:
+        # Top vertex is always colored by the local branch trait.
+        x.append(xk)
+        y.append(yk)
+        z.append(zk)
+        intensity.append(yk)
+
+        # Bottom vertex sits on the baseline plane; historical 'height' mode
+        # colors it by geometric height, 'branch' mode extrudes the local
+        # top-branch color straight down.
+        x.append(xk)
+        y.append(baseline_y)
+        z.append(zk)
+        intensity.append(baseline_y if curtain_color_mode == "height" else yk)
+
+    for step in range(len(branch_pts) - 1):
+        top_k = 2 * step
+        bot_k = 2 * step + 1
+        top_k1 = 2 * (step + 1)
+        bot_k1 = 2 * (step + 1) + 1
+
+        # Triangle A: (Top_k, Bottom_k, Top_{k+1})
+        i.append(top_k)
+        j.append(bot_k)
+        k.append(top_k1)
+
+        # Triangle B: (Bottom_k, Bottom_{k+1}, Top_{k+1})
+        i.append(bot_k)
+        j.append(bot_k1)
+        k.append(top_k1)
+
+    return x, y, z, i, j, k, intensity
+
+
+def _build_branch_curtain_geometries(
+    plot_data: PlotData,
+    baseline_y: float,
+    curtain_color_mode: str = "height",
+) -> List[Dict[str, Any]]:
+    """Construct one curtain geometry per biological parent->child edge.
+
+    Each element of the returned list describes a single biological edge and
+    can be rendered as its own Mesh3d trace (see ``build_figure``), which lets
+    WebGL depth-order overlapping transparent curtains instead of blending
+    thousands of triangles from every edge inside one draw call.
+
+    Args:
+        plot_data: PlotData containing edge segments and scaling bounds.
+        baseline_y: The constant Y height of the baseline plane.
+        curtain_color_mode: 'height' or 'branch' (see
+            :func:`_build_single_edge_curtain_geometry`).
+
+    Returns:
+        List of dicts with keys: parent_id, child_id, x, y, z, i, j, k,
+        intensity. Triangle indices are local to each edge's vertex arrays.
+    """
+    if curtain_color_mode not in {"height", "branch"}:
+        raise ValueError(
+            "curtain_color_mode must be 'height' or 'branch', "
+            f"got {curtain_color_mode!r}"
+        )
+
+    # Group segments by parent-child edge, preserving first-seen edge order.
+    edge_map: Dict[tuple, List[EdgeSegment]] = {}
+    for seg in plot_data.segments:
+        key = (seg.parent_id, seg.child_id)
+        if key not in edge_map:
+            edge_map[key] = []
+        edge_map[key].append(seg)
+
+    geometries: List[Dict[str, Any]] = []
+    for (p_id, c_id), segs in edge_map.items():
+        sorted_segs = sorted(segs, key=lambda s: s.segment_index)
+        if not sorted_segs:
+            continue
+
+        branch_pts = [(sorted_segs[0].x0, sorted_segs[0].y0, sorted_segs[0].z0)]
+        for s in sorted_segs:
+            branch_pts.append((s.x1, s.y1, s.z1))
+
+        x, y, z, i, j, k, intensity = _build_single_edge_curtain_geometry(
+            branch_pts, baseline_y, curtain_color_mode
+        )
+        geometries.append(
+            {
+                "parent_id": p_id,
+                "child_id": c_id,
+                "x": x,
+                "y": y,
+                "z": z,
+                "i": i,
+                "j": j,
+                "k": k,
+                "intensity": intensity,
+            }
+        )
+
+    return geometries
+
+
 def _build_branch_curtains_geometry(
     plot_data: PlotData,
     baseline_y: float,
     curtain_color_mode: str = "height",
 ) -> Tuple[List[float], List[float], List[float], List[int], List[int], List[int], List[float]]:
-    """Construct 3D mesh vertices, triangle indices, and vertex color intensities for branch curtains.
+    """Aggregate every per-edge curtain into one combined geometry.
 
-    For every parent -> child edge:
-      - Obtains the sequence of sampled vertices P_0 .. P_M along the branch.
-      - Constructs Top_k = (x_k, y_k, z_k) at the branch trait height (intensity = y_k).
-      - Constructs Bottom_k = (x_k, baseline_y, z_k) on the baseline plane.
-        Its intensity is baseline_y in 'height' mode or y_k in 'branch' mode.
-      - Generates 2 triangles for each adjacent step (k, k+1):
-          Triangle A: (Top_k, Bottom_k, Top_{k+1})
-          Triangle B: (Bottom_k, Bottom_{k+1}, Top_{k+1})
-      - Each edge is triangulated independently, strictly preserving topology
-        without cross-branch Delaunay triangulation.
-
-    Args:
-        plot_data: PlotData containing edge segments and scaling bounds.
-        baseline_y: The constant Y height of the baseline plane.
-        curtain_color_mode: 'height' keeps the historical vertical gradient
-            (vertex color intensity equals vertex Y). 'branch' projects each
-            local branch trait color vertically to the baseline so each fall-down
-            line is a single color while color can still change along the branch.
+    This is the legacy single-trace layout, kept as the reference
+    implementation used by tests and validation to prove that per-edge
+    Mesh3d traces recombine exactly into the historical aggregate vertices,
+    triangles and intensities.
 
     Returns:
         Tuple of (mesh_x, mesh_y, mesh_z, mesh_i, mesh_j, mesh_k, mesh_intensity).
@@ -144,73 +403,18 @@ def _build_branch_curtains_geometry(
     mesh_k: List[int] = []
     mesh_intensity: List[float] = []
 
-    if curtain_color_mode not in {"height", "branch"}:
-        raise ValueError(
-            "curtain_color_mode must be 'height' or 'branch', "
-            f"got {curtain_color_mode!r}"
-        )
-
-    # Group segments by parent-child edge
-    edge_map: Dict[tuple, List[EdgeSegment]] = {}
-    for seg in plot_data.segments:
-        key = (seg.parent_id, seg.child_id)
-        if key not in edge_map:
-            edge_map[key] = []
-        edge_map[key].append(seg)
-
     vertex_offset = 0
-
-    for (p_id, c_id), segs in edge_map.items():
-        sorted_segs = sorted(segs, key=lambda s: s.segment_index)
-        if not sorted_segs:
-            continue
-
-        # Extract sequence of points along this branch
-        branch_pts = [(sorted_segs[0].x0, sorted_segs[0].y0, sorted_segs[0].z0)]
-        for s in sorted_segs:
-            branch_pts.append((s.x1, s.y1, s.z1))
-
-        num_pts = len(branch_pts)
-
-        # Add top and bottom vertices for this branch
-        for k in range(num_pts):
-            xk, yk, zk = branch_pts[k]
-
-            # Top vertex is always colored by the local branch trait.
-            mesh_x.append(xk)
-            mesh_y.append(yk)
-            mesh_z.append(zk)
-            mesh_intensity.append(yk)
-
-            # Historical/default mode colors by geometric height, producing a
-            # vertical gradient. Branch mode extrudes the local top-branch color
-            # straight down to the baseline, making each fall-down line uniform.
-            mesh_x.append(xk)
-            mesh_y.append(baseline_y)
-            mesh_z.append(zk)
-            if curtain_color_mode == "height":
-                mesh_intensity.append(baseline_y)
-            else:
-                mesh_intensity.append(yk)
-
-        # Build 2 triangles per segment quad
-        for k in range(num_pts - 1):
-            top_k = vertex_offset + 2 * k
-            bot_k = vertex_offset + 2 * k + 1
-            top_k1 = vertex_offset + 2 * (k + 1)
-            bot_k1 = vertex_offset + 2 * (k + 1) + 1
-
-            # Triangle A: (Top_k, Bottom_k, Top_{k+1})
-            mesh_i.append(top_k)
-            mesh_j.append(bot_k)
-            mesh_k.append(top_k1)
-
-            # Triangle B: (Bottom_k, Bottom_{k+1}, Top_{k+1})
-            mesh_i.append(bot_k)
-            mesh_j.append(bot_k1)
-            mesh_k.append(top_k1)
-
-        vertex_offset += 2 * num_pts
+    for geom in _build_branch_curtain_geometries(
+        plot_data, baseline_y, curtain_color_mode
+    ):
+        mesh_x.extend(geom["x"])
+        mesh_y.extend(geom["y"])
+        mesh_z.extend(geom["z"])
+        mesh_intensity.extend(geom["intensity"])
+        mesh_i.extend(idx + vertex_offset for idx in geom["i"])
+        mesh_j.extend(idx + vertex_offset for idx in geom["j"])
+        mesh_k.extend(idx + vertex_offset for idx in geom["k"])
+        vertex_offset += len(geom["x"])
 
     return mesh_x, mesh_y, mesh_z, mesh_i, mesh_j, mesh_k, mesh_intensity
 
@@ -349,7 +553,9 @@ def build_figure(
         show_tip_labels: Whether to display text labels for tip taxa on the present baseline plane, extending outward from each tip (default: True).
         aspect_ratio: Optional custom aspect ratio dictionary {'x': float, 'y': float, 'z': float}.
         show_mesh: Whether to render continuous vertical curtain meshes.
-        mesh_opacity: Opacity for curtain meshes (0.0 to 1.0, default 1.0).
+        mesh_opacity: Standard opacity for curtain meshes (0.0 to 1.0, default 1.0).
+            Applied identically to every per-edge curtain trace. Must be finite
+            and within 0.0..1.0 (rejected loudly otherwise).
         show_centerline: Whether to render top-edge outline along branches.
         centerline_color: Color mode for centerline ('dark', 'trait', or CSS color).
         baseline_y: Custom baseline Y plane height (defaults to plot_data.baseline_y).
@@ -405,6 +611,17 @@ def build_figure(
                 f"Time-before-present span, got {tip_label_offset!r}"
             )
 
+    try:
+        mesh_opacity = float(mesh_opacity)
+    except (TypeError, ValueError) as err:
+        raise ValueError(
+            f"mesh_opacity must be a finite number between 0.0 and 1.0, got {mesh_opacity!r}"
+        ) from err
+    if not math.isfinite(mesh_opacity) or mesh_opacity < 0.0 or mesh_opacity > 1.0:
+        raise ValueError(
+            f"mesh_opacity must be a finite number between 0.0 and 1.0, got {mesh_opacity!r}"
+        )
+
     eff_baseline_y = baseline_y if baseline_y is not None else plot_data.baseline_y
     if eff_baseline_y is None:
         eff_baseline_y = plot_data.trait_min
@@ -456,21 +673,20 @@ def build_figure(
     )
 
     if show_mesh and plot_data.segments:
-        (
-            mesh_x,
-            mesh_y,
-            mesh_z,
-            mesh_i,
-            mesh_j,
-            mesh_k,
-            mesh_intensity,
-        ) = _build_branch_curtains_geometry(
+        # One Mesh3d trace per biological parent->child edge. This preserves
+        # the exact aggregate geometry (see _build_branch_curtains_geometry)
+        # while letting WebGL depth-order overlapping transparent ribbons;
+        # a single giant trace blends thousands of interleaved triangles in
+        # buffer order, which makes opacity=0.9 look far more transparent than
+        # requested. All curtain traces still share ONE scientific color
+        # domain, ONE opacity and exactly ONE colorbar.
+        curtain_geometries = _build_branch_curtain_geometries(
             plot_data=plot_data,
             baseline_y=eff_baseline_y,
             curtain_color_mode=curtain_color_mode,
         )
 
-        if mesh_x and mesh_i:
+        if curtain_geometries:
             cb_dict = dict(
                 title=dict(text=colorbar_title, side="top", font=dict(size=12, color="#333333")),
                 thickness=18,
@@ -482,33 +698,39 @@ def build_figure(
                 cb_dict["tickvals"] = colorbar_tickvals
                 cb_dict["ticktext"] = colorbar_ticktext
 
-            fig.add_trace(
-                go.Mesh3d(
-                    x=mesh_x,
-                    y=mesh_y,  # Y is TRAIT (Top) and baseline_y (Bottom)
-                    z=mesh_z,  # Z is TIME
-                    i=mesh_i,
-                    j=mesh_j,
-                    k=mesh_k,
-                    intensity=mesh_intensity,
-                    colorscale=plot_data.colorscale,
-                    cmin=mesh_cmin,
-                    cmax=mesh_cmax,
-                    reversescale=reverse_colorscale,
-                    opacity=mesh_opacity,
-                    flatshading=False,
-                    lighting=dict(
-                        ambient=0.85,
-                        diffuse=0.5,
-                        specular=0.08,
-                        roughness=0.8,
-                    ),
-                    hoverinfo="skip",
-                    name="Branch Curtains",
-                    showscale=True,
-                    colorbar=cb_dict,
+            colorbar_attached = False
+            for geom in curtain_geometries:
+                if not geom["x"] or not geom["i"]:
+                    continue
+                fig.add_trace(
+                    go.Mesh3d(
+                        x=geom["x"],
+                        y=geom["y"],  # Y is TRAIT (Top) and baseline_y (Bottom)
+                        z=geom["z"],  # Z is TIME
+                        i=geom["i"],
+                        j=geom["j"],
+                        k=geom["k"],
+                        intensity=geom["intensity"],
+                        colorscale=plot_data.colorscale,
+                        cmin=mesh_cmin,
+                        cmax=mesh_cmax,
+                        reversescale=reverse_colorscale,
+                        opacity=mesh_opacity,
+                        flatshading=False,
+                        lighting=dict(
+                            ambient=0.85,
+                            diffuse=0.5,
+                            specular=0.08,
+                            roughness=0.8,
+                        ),
+                        hoverinfo="skip",
+                        name=f"Branch Curtain: {geom['parent_id']} -> {geom['child_id']}",
+                        showlegend=False,
+                        showscale=not colorbar_attached,
+                        colorbar=cb_dict if not colorbar_attached else None,
+                    )
                 )
-            )
+                colorbar_attached = True
 
     # 2. Build branch top centerline outlines (Scatter3d lines)
     branch_x: List[Optional[float]] = []
