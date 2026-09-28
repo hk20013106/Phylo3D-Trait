@@ -288,8 +288,8 @@ def test_custom_baseline_raw_value_option():
     assert mesh.colorbar.ticktext[0] == "15.5"
 
 
-def test_tip_labels_use_scene_annotations_with_offsets():
-    """Verify tip labels are scene annotations with y > global_display_max and z <= 0."""
+def test_tip_labels_on_tree_layout_axis_with_rescaling():
+    """Verify tip labels are placed on Tree layout axis array ticks when display range is rescaled."""
     tree_str = "(A:10,B:10);"
     tree = parse_tree(tree_str)
     id_root = compute_stable_node_id(["A", "B"])
@@ -308,17 +308,15 @@ def test_tip_labels_use_scene_annotations_with_offsets():
 
     fig = build_figure(plot_data, mesh_opacity=1.0)
 
-    # Check annotations
+    # Annotations should be empty (no floating 3D text)
     annotations = fig.layout.scene.annotations
-    assert len(annotations) == 2
-    assert {ann.text for ann in annotations} == {"A", "B"}
+    assert len(annotations) == 0
 
-    for ann in annotations:
-        # y > global_display_max (13.0)
-        assert ann.y > 13.0
-        # z <= 0.0
-        assert ann.z <= 0.0
-        assert ann.showarrow is False
+    # Tip labels on Tree layout axis
+    xaxis = fig.layout.scene.xaxis
+    assert xaxis.tickmode == "array"
+    assert list(xaxis.tickvals) == [plot_data.nodes["A"].x, plot_data.nodes["B"].x]
+    assert list(xaxis.ticktext) == ["A", "B"]
 
     # Verify mesh opacity is 1.0
     mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]

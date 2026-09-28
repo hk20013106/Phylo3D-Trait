@@ -289,7 +289,7 @@ background = white
 showbackground = False
 internal-node markers = off
 tip markers = off
-tip labels = on
+tip labels = on (Tree layout axis ticks)
 centerline = thin
 projection = orthographic
 ```
@@ -712,7 +712,7 @@ python -m phylo3d_trait.cli plot --help
 | `--no-mesh` | flag | `False` | 是否关闭连续垂直幕帘曲面 |
 | `--no-centerline` | flag | `False` | 是否关闭分支顶缘轮廓线 |
 | `--centerline-color` | `dark`, `trait`, 或 CSS color | `dark` | 顶缘轮廓线颜色模式 |
-| `--no-labels` | flag | `False` | 是否隐藏末端物种名称文字标签 |
+| `--no-labels` | flag | `False` | 是否隐藏 Tree Layout 轴上的末端物种名称文字标签（关闭后不显示物种名，亦不回退至数字坐标） |
 | `--title` | string | 默认标题 | 图像顶部标题文本 |
 
 可以通过 `python -m phylo3d_trait.cli plot --help` 查看所有参数的实时官方说明。
@@ -729,7 +729,7 @@ background = white
 camera preset = elife
 internal-node markers = off
 tip markers = off
-tip labels = on
+tip labels = on (Tree layout axis ticks)
 centerline = thin
 projection = orthographic
 baseline = trait_min

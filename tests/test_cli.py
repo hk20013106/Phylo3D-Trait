@@ -218,7 +218,8 @@ def test_example2_cli_end_to_end(tmp_path: Path):
     assert '"cmin":0.0' in content or '"cmin": 0.0' in content
     assert '"cmax":5.0' in content or '"cmax": 5.0' in content
     assert "Branch Curtains" in content
-    assert "annotations" in content
+    assert "Tree layout" in content
+    assert "ticktext" in content
 
 
 def test_cli_trait_display_range_end_to_end(tmp_path: Path):
@@ -244,7 +245,8 @@ def test_cli_trait_display_range_end_to_end(tmp_path: Path):
     assert '"cmin":0.0' in content or '"cmin": 0.0' in content
     assert '"cmax":13.0' in content or '"cmax": 13.0' in content
     assert "Trait Value" in content
-    assert "annotations" in content
+    assert "Tree layout" in content
+    assert "ticktext" in content
     # In reverse transform, bottom label is 7 (raw_trait_max 5.0 + 2.0 = 7.0), not "baseline"
     assert "7" in content
 

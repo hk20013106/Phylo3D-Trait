@@ -111,10 +111,13 @@ def test_no_node_or_tip_markers_by_default():
         if hasattr(trace, "mode") and trace.mode:
             assert "markers" not in trace.mode, f"Found unexpected marker mode: {trace.mode}"
 
-    # Verify tip labels exist in scene.annotations and no marker traces
+    # Verify tip labels exist on Tree layout axis array ticks and annotations are empty
     annotations = fig.layout.scene.annotations
-    assert len(annotations) == 4
-    assert {ann.text for ann in annotations} == {"A", "B", "C", "D"}
+    assert len(annotations) == 0
+    xaxis = fig.layout.scene.xaxis
+    assert xaxis.tickmode == "array"
+    assert list(xaxis.tickvals) == [0.0, 1.0, 2.0, 3.0]
+    assert list(xaxis.ticktext) == ["A", "B", "C", "D"]
 
 
 def test_optional_internal_node_markers():
@@ -188,8 +191,8 @@ def test_elife_camera_preset():
     assert camera.projection.type == "orthographic"
 
 
-def test_tip_labels_aligned_to_top_front_reference_line():
-    """Verify all tip labels are placed as 3D scene annotations with slight top-front offset."""
+def test_axis_labels_map_exactly_to_tips():
+    """TEST 1: Verify Tree layout axis labels map exactly to terminal tips in layout order."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -200,41 +203,182 @@ def test_tip_labels_aligned_to_top_front_reference_line():
         "A": 1.2,
         "B": 2.5,
         "C": 3.8,
-        "D": 8.0,  # Global maximum trait
+        "D": 8.0,
         id_ab: 1.8,
         id_cd: 5.0,
         id_root: 3.0,
     }
 
     plot_data = build_plot_data(tree, trait_values)
-    global_max = plot_data.trait_max
-    assert global_max == pytest.approx(8.0)
-
     fig = build_figure(plot_data)
 
-    annotations = fig.layout.scene.annotations
-    assert len(annotations) == 4
-
+    xaxis = fig.layout.scene.xaxis
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
-    expected_xs = [n.x for n in tip_nodes]
-    expected_texts = [n.label for n in tip_nodes]
+    sorted_tips = sorted(tip_nodes, key=lambda n: n.x)
 
-    # 1. All annotations y > global_trait_max (8.0)
-    for ann in annotations:
-        assert ann.y > global_max
-        assert ann.y == pytest.approx(global_max + 0.02 * (8.0 - 1.2))
+    assert len(xaxis.tickvals) == len(sorted_tips)
+    assert len(xaxis.ticktext) == len(sorted_tips)
 
-    # 2. All annotations z <= 0.0
-    for ann in annotations:
-        assert ann.z <= 0.0
-        assert ann.showarrow is False
+    for i, tip in enumerate(sorted_tips):
+        assert xaxis.tickvals[i] == pytest.approx(tip.x)
+        assert xaxis.ticktext[i] == tip.label
 
-    # 3. Each annotation x and text matches corresponding tip
-    assert [ann.x for ann in annotations] == expected_xs
-    assert [ann.text for ann in annotations] == expected_texts
 
-    # 4. Biological tip node coordinates in plot_data remain unchanged
-    assert plot_data.nodes["A"].y == pytest.approx(1.2)
-    assert plot_data.nodes["B"].y == pytest.approx(2.5)
-    assert plot_data.nodes["C"].y == pytest.approx(3.8)
-    assert plot_data.nodes["D"].y == pytest.approx(8.0)
+def test_no_internal_nodes_on_axis():
+    """TEST 2: Verify internal ancestral nodes are strictly excluded from Tree layout axis ticks."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
+    tree = parse_tree(tree_str)
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0,
+        id_ab: 1.5, id_cd: 3.5, id_root: 2.5
+    }
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+
+    xaxis = fig.layout.scene.xaxis
+    internal_ids = {id_ab, id_cd, id_root}
+
+    # No internal IDs in axis ticks
+    for label in xaxis.ticktext:
+        assert label not in internal_ids
+        assert not label.startswith("clade:")
+
+    # Exactly matches terminal tip count
+    assert len(xaxis.ticktext) == 4
+
+
+def test_no_duplicate_terminal_3d_text():
+    """TEST 3: Verify default mode has no duplicate floating 3D text traces or annotations."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
+    tree = parse_tree(tree_str)
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0,
+        id_ab: 1.5, id_cd: 3.5, id_root: 2.5
+    }
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+
+    # No annotations in scene
+    assert len(fig.layout.scene.annotations) == 0
+
+    # No Scatter3d trace with mode="text"
+    for trace in fig.data:
+        if hasattr(trace, "mode") and trace.mode:
+            assert "text" not in trace.mode
+
+
+def test_geometry_unchanged_by_label_rendering():
+    """TEST 4: Label refactoring must not alter any 3D geometry or coordinates."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
+    tree = parse_tree(tree_str)
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.2, "B": 2.5, "C": 3.8, "D": 8.0,
+        id_ab: 1.8, id_cd: 5.0, id_root: 3.0,
+    }
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig_labels = build_figure(plot_data, show_tip_labels=True)
+    fig_nolabels = build_figure(plot_data, show_tip_labels=False)
+
+    mesh_a = [t for t in fig_labels.data if t.name == "Branch Curtains"][0]
+    mesh_b = [t for t in fig_nolabels.data if t.name == "Branch Curtains"][0]
+
+    line_a = [t for t in fig_labels.data if t.name == "Branch Centerlines"][0]
+    line_b = [t for t in fig_nolabels.data if t.name == "Branch Centerlines"][0]
+
+    # Mesh geometry strictly identical
+    assert list(mesh_a.x) == list(mesh_b.x)
+    assert list(mesh_a.y) == list(mesh_b.y)
+    assert list(mesh_a.z) == list(mesh_b.z)
+    assert list(mesh_a.i) == list(mesh_b.i)
+    assert list(mesh_a.j) == list(mesh_b.j)
+    assert list(mesh_a.k) == list(mesh_b.k)
+    assert list(mesh_a.intensity) == list(mesh_b.intensity)
+
+    # Line geometry strictly identical
+    assert list(line_a.x) == list(line_b.x)
+    assert list(line_a.y) == list(line_b.y)
+    assert list(line_a.z) == list(line_b.z)
+
+    # Node coordinates in plot_data strictly intact
+    assert plot_data.nodes["A"].x == pytest.approx(0.0)
+    assert plot_data.nodes["B"].x == pytest.approx(1.0)
+    assert plot_data.nodes["C"].x == pytest.approx(2.0)
+    assert plot_data.nodes["D"].x == pytest.approx(3.0)
+    assert plot_data.nodes[id_ab].x == pytest.approx(0.5)
+    assert plot_data.nodes[id_cd].x == pytest.approx(2.5)
+    assert plot_data.nodes[id_root].x == pytest.approx(1.5)
+
+
+def test_no_labels_option_hides_ticks_and_annotations():
+    """TEST 5: --no-labels (show_tip_labels=False) hides species ticks and floating annotations."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
+    tree = parse_tree(tree_str)
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0,
+        id_ab: 1.5, id_cd: 3.5, id_root: 2.5
+    }
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data, show_tip_labels=False)
+
+    xaxis = fig.layout.scene.xaxis
+    assert xaxis.showticklabels is False
+    assert len(xaxis.tickvals) == 0
+    assert len(xaxis.ticktext) == 0
+    assert len(fig.layout.scene.annotations) == 0
+
+
+def test_previous_pr1_features_no_regression():
+    """TEST 6: PR #1 color reversal, branch curtain mode, and trait centerline have no regression."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
+    tree = parse_tree(tree_str)
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0,
+        id_ab: 1.5, id_cd: 3.5, id_root: 2.5
+    }
+
+    plot_data = build_plot_data(tree, trait_values, baseline_y=0.0)
+    fig = build_figure(
+        plot_data,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        centerline_color="trait",
+        show_tip_labels=True,
+    )
+
+    mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]
+    line = [t for t in fig.data if t.name == "Branch Centerlines"][0]
+
+    assert mesh.reversescale is True
+    assert line.line.reversescale is True
+    assert line.line.colorscale is not None
+
+    # Tree layout axis species labels intact
+    xaxis = fig.layout.scene.xaxis
+    assert list(xaxis.ticktext) == ["A", "B", "C", "D"]
+    assert list(xaxis.tickvals) == [0.0, 1.0, 2.0, 3.0]
+    assert len(fig.layout.scene.annotations) == 0

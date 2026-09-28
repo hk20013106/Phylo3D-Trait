@@ -9,7 +9,7 @@ Visual representations:
 - Continuous vertical curtain / ribbon surfaces (Mesh3d) descending from each
   branch's trait height down to a common trait baseline plane.
 - Crisp branch top outlines (Scatter3d lines).
-- Text labels for terminal taxa without intrusive marker dots.
+- Text labels for terminal taxa on Tree layout axis without intrusive marker dots.
 - Pure white / transparent background with clean axis gridlines.
 - eLife-style camera preset with screen-vertical Y (Trait) and +Z foreground (MRCA).
 - Global trait normalization with optional independent color reversal and
@@ -300,7 +300,7 @@ def build_figure(
         plot_data: PlotData containing annotated nodes, edge segments, and scaling limits.
         title: Optional title override.
         branch_width: Line width for 3D branch top outline (default: 1.0).
-        show_tip_labels: Whether to display text labels for tip taxa (default: True).
+        show_tip_labels: Whether to display text labels for tip taxa on Tree layout axis (default: True).
         aspect_ratio: Optional custom aspect ratio dictionary {'x': float, 'y': float, 'z': float}.
         show_mesh: Whether to render continuous vertical curtain meshes.
         mesh_opacity: Opacity for curtain meshes (0.0 to 1.0, default 1.0).
@@ -565,30 +565,29 @@ def build_figure(
                 )
             )
 
-    # 4. Build Terminal Tips 3D annotations (aligned on top-front reference line with dynamic offsets)
+    # 4. Configure Tree Layout axis ticks with terminal species labels
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
-    tip_annotations: List[Dict[str, Any]] = []
-    if tip_nodes and show_tip_labels:
-        display_span = max(plot_data.trait_max - plot_data.trait_min, 1.0)
-        time_span = max(plot_data.time_max - plot_data.time_min, 1.0)
-        label_y_offset = 0.02 * display_span
-        label_z_offset = 0.015 * time_span
-        label_y = plot_data.trait_max + label_y_offset
-        label_z = 0.0 - label_z_offset
+    sorted_tips = sorted(tip_nodes, key=lambda n: n.x)
+    tip_tickvals = [n.x for n in sorted_tips]
+    tip_ticktext = [n.label for n in sorted_tips]
 
-        for n in tip_nodes:
-            tip_annotations.append(
-                dict(
-                    x=n.x,
-                    y=label_y,
-                    z=label_z,
-                    text=n.label,
-                    showarrow=False,
-                    xanchor="center",
-                    yanchor="bottom",
-                    font=dict(size=11, color="#222222"),
-                )
-            )
+    xaxis_cfg: Dict[str, Any] = dict(
+        title=dict(text="Tree layout", font=dict(size=13, color="#333333")),
+        showbackground=False,
+        gridcolor="#e5e5e5",
+        zerolinecolor="#d0d0d0",
+    )
+    if show_tip_labels and tip_tickvals:
+        xaxis_cfg["tickmode"] = "array"
+        xaxis_cfg["tickvals"] = tip_tickvals
+        xaxis_cfg["ticktext"] = tip_ticktext
+        xaxis_cfg["tickfont"] = dict(size=9, color="#222222")
+    else:
+        xaxis_cfg["tickmode"] = "array"
+        xaxis_cfg["tickvals"] = []
+        xaxis_cfg["ticktext"] = []
+        xaxis_cfg["showticklabels"] = False
+        xaxis_cfg["ticks"] = ""
 
     # Calculate default balanced manual aspect ratio
     if aspect_ratio is None:
@@ -632,12 +631,7 @@ def build_figure(
         paper_bgcolor=paper_bg,
         plot_bgcolor=plot_bg,
         scene=dict(
-            xaxis=dict(
-                title=dict(text="Tree layout", font=dict(size=13, color="#333333")),
-                showbackground=False,
-                gridcolor="#e5e5e5",
-                zerolinecolor="#d0d0d0",
-            ),
+            xaxis=xaxis_cfg,
             yaxis=yaxis_cfg,
             zaxis=dict(
                 title=dict(text="Time before present", font=dict(size=13, color="#333333")),
@@ -648,7 +642,7 @@ def build_figure(
             aspectmode="manual",
             aspectratio=ratio_dict,
             camera=camera_cfg,
-            annotations=tip_annotations,
+            annotations=[],
         ),
         margin=dict(l=20, r=20, t=50, b=20),
     )

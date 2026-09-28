@@ -34,7 +34,7 @@ The 3D coordinate space maps strictly as follows:
 
 | Axis | Scientific Meaning | Description |
 |---|---|---|
-| **X** | **Tree Layout** | Horizontal separation of lineages ($0, 1, \dots, N-1$ at terminal tips; internal nodes positioned at children centroids). |
+| **X** | **Tree Layout** | Horizontal separation of lineages ($0, 1, \dots, N-1$ at terminal tips; internal nodes positioned at children centroids). Terminal species labels are displayed directly on the Tree Layout axis ticks at their exact terminal-node layout coordinates. |
 | **Y** | **Trait Value ("Height")** | Trait value directly determines vertical elevation in 3D space. Low trait $\rightarrow$ low Y; high trait $\rightarrow$ high Y. |
 | **Z** | **Evolutionary Time** | Divergence age / time before present. Tips at $Z = 0$, internal nodes at $Z > 0$, root at $Z = \text{root\_age}$. |
 
@@ -176,7 +176,7 @@ python -m phylo3d_trait.cli plot -h
 - `--show-node-markers`: Render diamond markers at ancestral nodes (default: `False`).
 - `--no-mesh`: Disable continuous curtain mesh surfaces.
 - `--no-centerline`: Disable branch top centerline outlines.
-- `--no-labels`: Disable text labels on terminal tips.
+- `--no-labels`: Disable terminal taxon labels on the Tree Layout axis (hides tick labels without reverting to numeric coordinates).
 
 ---
 
