@@ -91,8 +91,8 @@ def test_default_colorscale_direction_is_unchanged():
     assert mesh.reversescale is False
 
 
-def test_no_node_or_tip_markers_by_default():
-    """Verify no internal node markers or tip circle markers are drawn by default."""
+def test_default_hover_markers_unobtrusive():
+    """Verify that node markers are invisible (opacity=0.0) by default but present for 3D raycast hover."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -106,22 +106,25 @@ def test_no_node_or_tip_markers_by_default():
     plot_data = build_plot_data(tree, trait_values)
     fig = build_figure(plot_data, show_node_markers=False)
 
-    # Verify no marker traces exist
-    for trace in fig.data:
-        if hasattr(trace, "mode") and trace.mode:
-            assert "markers" not in trace.mode, f"Found unexpected marker mode: {trace.mode}"
+    # Verify internal node markers are opacity=0.0
+    internal_traces = [t for t in fig.data if t.name == "Internal Nodes"]
+    assert len(internal_traces) == 1
+    assert internal_traces[0].marker.opacity == 0.0
 
-    # Verify tip labels exist on Tree layout axis array ticks and annotations are empty
-    annotations = fig.layout.scene.annotations
-    assert len(annotations) == 0
+    # Verify terminal taxa hover markers are opacity=0.0
+    tip_traces = [t for t in fig.data if t.name == "Terminal Taxa"]
+    assert len(tip_traces) == 1
+    assert tip_traces[0].marker.opacity == 0.0
+
+    # Verify annotations are empty and axis tick labels are hidden
+    assert len(fig.layout.scene.annotations) == 0
     xaxis = fig.layout.scene.xaxis
-    assert xaxis.tickmode == "array"
-    assert list(xaxis.tickvals) == [0.0, 1.0, 2.0, 3.0]
-    assert list(xaxis.ticktext) == ["A", "B", "C", "D"]
+    assert xaxis.showticklabels is False
+    assert len(xaxis.tickvals) == 0
 
 
 def test_optional_internal_node_markers():
-    """Verify that ancestral node markers are added only when show_node_markers=True."""
+    """Verify that ancestral node markers become visible (opacity=0.95) when show_node_markers=True."""
     tree_str = "(A:10,B:10);"
     tree = parse_tree(tree_str)
     id_root = compute_stable_node_id(["A", "B"])
@@ -133,10 +136,11 @@ def test_optional_internal_node_markers():
     internal_traces = [t for t in fig.data if t.name == "Internal Nodes"]
     assert len(internal_traces) == 1
     assert internal_traces[0].mode == "markers"
+    assert internal_traces[0].marker.opacity == 0.95
 
 
 def test_scene_axes_and_clean_background():
-    """Verify no gray background walls and paper background is pure white."""
+    """Verify no gray background walls, paper background is pure white, and 3D spikes enabled."""
     tree_str = "(A:10,B:10);"
     tree = parse_tree(tree_str)
     id_root = compute_stable_node_id(["A", "B"])
@@ -153,10 +157,16 @@ def test_scene_axes_and_clean_background():
     assert scene.yaxis.showbackground is False
     assert scene.zaxis.showbackground is False
 
-    assert scene.xaxis.title.text == "Tree layout"
+    # Goal 2: Tree layout title deleted
+    assert scene.xaxis.title.text == ""
     assert scene.yaxis.title.text == "Trait value"
     assert scene.zaxis.title.text == "Time before present"
     assert scene.aspectmode == "manual"
+
+    # Goal 4: 3D spikes on all axes
+    assert scene.xaxis.showspikes is True
+    assert scene.yaxis.showspikes is True
+    assert scene.zaxis.showspikes is True
 
 
 def test_transparent_background_option():
@@ -191,8 +201,8 @@ def test_elife_camera_preset():
     assert camera.projection.type == "orthographic"
 
 
-def test_axis_labels_map_exactly_to_tips():
-    """TEST 1: Verify Tree layout axis labels map exactly to terminal tips in layout order."""
+def test_species_labels_fixed_at_present_side():
+    """TEST 1 (Goal 1): All species labels must have Z == time_min (present time 0.0), never drifting."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -212,20 +222,92 @@ def test_axis_labels_map_exactly_to_tips():
     plot_data = build_plot_data(tree, trait_values)
     fig = build_figure(plot_data)
 
-    xaxis = fig.layout.scene.xaxis
+    label_traces = [t for t in fig.data if t.name == "Species Labels"]
+    assert len(label_traces) == 1
+    label_trace = label_traces[0]
+
+    assert all(z == pytest.approx(plot_data.time_min) for z in label_trace.z)
+    assert plot_data.time_min == pytest.approx(0.0)
+
+
+def test_species_label_layout_mapping():
+    """TEST 2 (Goal 1): Verify species labels match terminal tips in tree layout order (X coordinates)."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
+    tree = parse_tree(tree_str)
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.2,
+        "B": 2.5,
+        "C": 3.8,
+        "D": 8.0,
+        id_ab: 1.8,
+        id_cd: 5.0,
+        id_root: 3.0,
+    }
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+
+    label_trace = [t for t in fig.data if t.name == "Species Labels"][0]
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
     sorted_tips = sorted(tip_nodes, key=lambda n: n.x)
 
-    assert len(xaxis.tickvals) == len(sorted_tips)
-    assert len(xaxis.ticktext) == len(sorted_tips)
-
+    assert len(label_trace.x) == len(sorted_tips)
+    assert list(label_trace.text) == [n.label for n in sorted_tips]
     for i, tip in enumerate(sorted_tips):
-        assert xaxis.tickvals[i] == pytest.approx(tip.x)
-        assert xaxis.ticktext[i] == tip.label
+        assert label_trace.x[i] == pytest.approx(tip.x)
 
 
-def test_no_internal_nodes_on_axis():
-    """TEST 2: Verify internal ancestral nodes are strictly excluded from Tree layout axis ticks."""
+def test_species_label_constant_trait_plane():
+    """TEST 3 (Goal 1): All species labels must lie on the constant baseline Y plane."""
+    tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
+    tree = parse_tree(tree_str)
+    id_ab = compute_stable_node_id(["A", "B"])
+    id_cd = compute_stable_node_id(["C", "D"])
+    id_root = compute_stable_node_id(["A", "B", "C", "D"])
+
+    trait_values = {
+        "A": 1.2,
+        "B": 2.5,
+        "C": 3.8,
+        "D": 8.0,
+        id_ab: 1.8,
+        id_cd: 5.0,
+        id_root: 3.0,
+    }
+
+    # Test default baseline
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+    label_trace = [t for t in fig.data if t.name == "Species Labels"][0]
+    assert len(set(label_trace.y)) == 1
+    assert label_trace.y[0] == pytest.approx(plot_data.baseline_y)
+
+    # Test custom baseline_y
+    fig_custom = build_figure(plot_data, baseline_y=4.0)
+    label_trace_custom = [t for t in fig_custom.data if t.name == "Species Labels"][0]
+    assert len(set(label_trace_custom.y)) == 1
+    assert label_trace_custom.y[0] == pytest.approx(4.0)
+
+
+def test_tree_layout_axis_title_removed():
+    """TEST 4 (Goal 2): Scene X axis title text must be completely empty."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 1.0, "B": 2.0, id_root: 1.5}
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+
+    assert fig.layout.scene.xaxis.title.text == ""
+
+
+def test_tree_layout_numeric_ticks_hidden():
+    """TEST 5 (Goal 2): Numeric tick labels on Tree Layout axis must be hidden."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -241,19 +323,42 @@ def test_no_internal_nodes_on_axis():
     fig = build_figure(plot_data)
 
     xaxis = fig.layout.scene.xaxis
-    internal_ids = {id_ab, id_cd, id_root}
-
-    # No internal IDs in axis ticks
-    for label in xaxis.ticktext:
-        assert label not in internal_ids
-        assert not label.startswith("clade:")
-
-    # Exactly matches terminal tip count
-    assert len(xaxis.ticktext) == 4
+    assert xaxis.showticklabels is False
+    assert len(xaxis.tickvals) == 0
+    assert len(xaxis.ticktext) == 0
+    assert xaxis.ticks == ""
 
 
-def test_no_duplicate_terminal_3d_text():
-    """TEST 3: Verify default mode has no duplicate floating 3D text traces or annotations."""
+def test_species_font_scale_130_percent():
+    """TEST 6 (Goal 3): Species label font size must be 12 (130% of previous size 9)."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 1.0, "B": 2.0, id_root: 1.5}
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+
+    label_trace = [t for t in fig.data if t.name == "Species Labels"][0]
+    assert label_trace.textfont.size == 12
+
+
+def test_label_trace_hover_disabled():
+    """TEST 7 (Goal 4): Species label text trace must have hoverinfo='skip' to avoid interfering with 3D hover."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 1.0, "B": 2.0, id_root: 1.5}
+
+    plot_data = build_plot_data(tree, trait_values)
+    fig = build_figure(plot_data)
+
+    label_trace = [t for t in fig.data if t.name == "Species Labels"][0]
+    assert label_trace.hoverinfo == "skip"
+
+
+def test_node_hover_restored():
+    """TEST 8 (Goal 4): Tree tips and internal nodes must have dedicated hover traces with raw trait."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -261,24 +366,66 @@ def test_no_duplicate_terminal_3d_text():
     id_root = compute_stable_node_id(["A", "B", "C", "D"])
 
     trait_values = {
-        "A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0,
-        id_ab: 1.5, id_cd: 3.5, id_root: 2.5
+        "A": 7.42,
+        "B": 6.85,
+        "C": 8.10,
+        "D": 5.90,
+        id_ab: 7.10,
+        id_cd: 7.00,
+        id_root: 7.05,
     }
 
     plot_data = build_plot_data(tree, trait_values)
     fig = build_figure(plot_data)
 
-    # No annotations in scene
-    assert len(fig.layout.scene.annotations) == 0
+    tip_traces = [t for t in fig.data if t.name == "Terminal Taxa"]
+    internal_traces = [t for t in fig.data if t.name == "Internal Nodes"]
 
-    # No Scatter3d trace with mode="text"
-    for trace in fig.data:
-        if hasattr(trace, "mode") and trace.mode:
-            assert "text" not in trace.mode
+    assert len(tip_traces) == 1
+    assert len(internal_traces) == 1
+
+    # Terminal taxa hover template contains raw trait
+    tip_trace = tip_traces[0]
+    assert "customdata[2]:.4f" in tip_trace.hovertemplate
+    # Check first tip customdata raw trait
+    assert tip_trace.customdata[0][2] == pytest.approx(7.42)
+
+    # Spikes enabled on scene
+    scene = fig.layout.scene
+    assert scene.xaxis.showspikes is True
+    assert scene.yaxis.showspikes is True
+    assert scene.zaxis.showspikes is True
 
 
-def test_geometry_unchanged_by_label_rendering():
-    """TEST 4: Label refactoring must not alter any 3D geometry or coordinates."""
+def test_raw_value_in_hover():
+    """TEST 9 (Goal 4): Hover tooltip must display unscaled raw trait even when display transform is active."""
+    tree_str = "(A:10,B:10);"
+    tree = parse_tree(tree_str)
+    id_root = compute_stable_node_id(["A", "B"])
+    trait_values = {"A": 5.0, "B": 10.0, id_root: 7.5}
+
+    # Apply linear scale to display range (13.0, 5.0)
+    plot_data = build_plot_data(
+        tree,
+        trait_values,
+        trait_display_range=(13.0, 5.0),
+    )
+
+    fig = build_figure(plot_data)
+    tip_trace = [t for t in fig.data if t.name == "Terminal Taxa"][0]
+
+    # Raw trait should remain 5.0 and 10.0, while display trait is 13.0 and 5.0
+    tip_a = [c for c in tip_trace.customdata if c[0] == "A"][0]
+    assert tip_a[2] == pytest.approx(5.0)  # raw trait
+    assert tip_a[3] == pytest.approx(13.0)  # display trait
+
+    tip_b = [c for c in tip_trace.customdata if c[0] == "B"][0]
+    assert tip_b[2] == pytest.approx(10.0)  # raw trait
+    assert tip_b[3] == pytest.approx(5.0)  # display trait
+
+
+def test_geometry_regression():
+    """TEST 10: Label refactoring must not alter any 3D tree coordinates, lines, or mesh geometry."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -324,8 +471,8 @@ def test_geometry_unchanged_by_label_rendering():
     assert plot_data.nodes[id_root].x == pytest.approx(1.5)
 
 
-def test_no_labels_option_hides_ticks_and_annotations():
-    """TEST 5: --no-labels (show_tip_labels=False) hides species ticks and floating annotations."""
+def test_no_labels_option_hides_species_trace():
+    """TEST 11: --no-labels (show_tip_labels=False) hides the Species Labels trace."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -340,6 +487,10 @@ def test_no_labels_option_hides_ticks_and_annotations():
     plot_data = build_plot_data(tree, trait_values)
     fig = build_figure(plot_data, show_tip_labels=False)
 
+    # Species Labels trace must not be present
+    label_traces = [t for t in fig.data if t.name == "Species Labels"]
+    assert len(label_traces) == 0
+
     xaxis = fig.layout.scene.xaxis
     assert xaxis.showticklabels is False
     assert len(xaxis.tickvals) == 0
@@ -348,7 +499,7 @@ def test_no_labels_option_hides_ticks_and_annotations():
 
 
 def test_previous_pr1_features_no_regression():
-    """TEST 6: PR #1 color reversal, branch curtain mode, and trait centerline have no regression."""
+    """TEST 12: PR #1 color reversal, branch curtain mode, and trait centerline have no regression."""
     tree_str = "((A:10,B:10):20,(C:15,D:15):15);"
     tree = parse_tree(tree_str)
     id_ab = compute_stable_node_id(["A", "B"])
@@ -377,8 +528,9 @@ def test_previous_pr1_features_no_regression():
     assert line.line.reversescale is True
     assert line.line.colorscale is not None
 
-    # Tree layout axis species labels intact
-    xaxis = fig.layout.scene.xaxis
-    assert list(xaxis.ticktext) == ["A", "B", "C", "D"]
-    assert list(xaxis.tickvals) == [0.0, 1.0, 2.0, 3.0]
-    assert len(fig.layout.scene.annotations) == 0
+    # Species Labels trace present and anchored at time_min (0.0)
+    label_traces = [t for t in fig.data if t.name == "Species Labels"]
+    assert len(label_traces) == 1
+    assert all(z == pytest.approx(0.0) for z in label_traces[0].z)
+    assert list(label_traces[0].text) == ["A", "B", "C", "D"]
+

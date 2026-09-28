@@ -312,11 +312,19 @@ def test_tip_labels_on_tree_layout_axis_with_rescaling():
     annotations = fig.layout.scene.annotations
     assert len(annotations) == 0
 
-    # Tip labels on Tree layout axis
+    # Tip labels rendered via dedicated fixed Species Labels trace
     xaxis = fig.layout.scene.xaxis
-    assert xaxis.tickmode == "array"
-    assert list(xaxis.tickvals) == [plot_data.nodes["A"].x, plot_data.nodes["B"].x]
-    assert list(xaxis.ticktext) == ["A", "B"]
+    assert xaxis.showticklabels is False
+    assert len(xaxis.tickvals) == 0
+
+    species_trace = [t for t in fig.data if t.name == "Species Labels"][0]
+    assert species_trace.mode == "text"
+    assert list(species_trace.x) == [plot_data.nodes["A"].x, plot_data.nodes["B"].x]
+    assert list(species_trace.text) == ["A", "B"]
+    assert all(z == pytest.approx(plot_data.time_min) for z in species_trace.z)
+    assert all(y == pytest.approx(plot_data.baseline_y) for y in species_trace.y)
+    assert species_trace.hoverinfo == "skip"
+    assert species_trace.textfont.size == 12
 
     # Verify mesh opacity is 1.0
     mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]

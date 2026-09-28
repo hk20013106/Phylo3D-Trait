@@ -25,3 +25,4 @@ ENV/
 *.tmp
 *.bak
 tmp/
+validation_outputs/
