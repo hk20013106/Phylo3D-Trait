@@ -24,9 +24,7 @@ Phylo3D-Trait does not infer phylogenies, date trees, fit evolutionary models, o
 ## Quick start
 
 ```bash
-git clone https://github.com/hk20013106/Phylo3D-Trait.git
-cd Phylo3D-Trait
-pip install -e .
+pip install phylo3d-trait
 
 python -m phylo3d_trait.cli template-values -t tree.nwk -o values_template.csv
 
@@ -37,6 +35,9 @@ python -m phylo3d_trait.cli plot \
   --renderer four-layer \
   --opacity 0.85
 ```
+
+## Install
+- PyPI: https://pypi.org/project/phylo3d-trait/
 
 ## Documentation
 - [Repository README](https://github.com/hk20013106/Phylo3D-Trait)
