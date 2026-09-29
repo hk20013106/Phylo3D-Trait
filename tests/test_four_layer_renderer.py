@@ -148,7 +148,7 @@ def test_four_layer_axis_payload():
     assert axes["x_axis"]["show_numeric_labels"] is False
 
     y_axis = axes["y_axis"]
-    assert y_axis["title"]["text"] == "Trait value"
+    assert y_axis["title"] == "Trait value"
     assert len(y_axis["ticks"]) >= 2
     # Verify Y raw labels are raw scientific traits (not corrupted by trait_display_offset 4.0)
     raw_texts = [t["text"] for t in y_axis["ticks"]]
@@ -163,7 +163,7 @@ def test_four_layer_axis_payload():
     assert tick_disp_1["text"] == "5"
 
     z_axis = axes["z_axis"]
-    assert z_axis["title"]["text"] == "Time before present"
+    assert z_axis["title"] == "Time before present"
     assert len(z_axis["ticks"]) >= 2
     z_texts = [t["text"] for t in z_axis["ticks"]]
     # Root age is 10.0, present is 0.0
@@ -233,7 +233,10 @@ def test_four_layer_generated_html_static_features(tmp_path):
     # Axes overlay
     assert '<svg id="axes">' in html
     assert "updateAxes" in html
-    assert "svgFrameLines" in html
+    assert "svgYAxis" in html
+    assert "svgZAxis" in html
+    assert "frontAxisCorner" in html
+    assert "outward2D" in html
     assert "svgYTicks" in html
     assert "svgZTicks" in html
 
@@ -358,3 +361,51 @@ def test_four_layer_display_flags_do_not_alter_geometry_or_metadata():
 
 
 
+
+
+def test_four_layer_toolbar_exports_hybrid_svg_and_png(tmp_path):
+    out = tmp_path / "four_layer_export.html"
+    write_four_layer_html(
+        _data(),
+        out,
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        centerline_color="trait",
+    )
+    html = out.read_text(encoding="utf-8")
+
+    assert 'id="toolbar"' in html
+    assert 'id="reset-view"' in html
+    assert 'id="download-png"' in html
+    assert 'id="download-svg"' in html
+    assert "function currentExportSvg()" in html
+    assert 'canvas.toDataURL("image/png")' in html
+    assert '<image href="' in html
+    assert "function exportSvg()" in html
+    assert "function exportPng()" in html
+
+
+def test_four_layer_axes_do_not_draw_box_frame():
+    payload = _build_payload(
+        _data(),
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        show_tip_labels=True,
+        show_centerline=True,
+        centerline_color="trait",
+        background="white",
+        camera_preset="elife",
+    )
+    axes = payload["axes"]
+    assert "frame_lines" not in axes
+    assert axes["y_axis"]["title"] == "Trait value"
+    assert axes["z_axis"]["title"] == "Time before present"
+    assert axes["x_axis"]["visible"] is False
