@@ -132,6 +132,14 @@ Frequently used options:
 
 ## 6. Installation and development
 
+Stable installation from PyPI:
+
+```bash
+pip install phylo3d-trait
+```
+
+For development from source:
+
 ```bash
 git clone https://github.com/hk20013106/Phylo3D-Trait.git
 cd Phylo3D-Trait
