@@ -485,7 +485,7 @@ svgYTicks.forEach(item=>{
 if(!showY){item.line.style.display="none";item.text.style.display="none";return;}
 const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);
 if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}
-else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("x2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}
+else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}
 });
 if(DATA.axes.y_axis&&DATA.axes.y_axis.title){
 if(!showY){svgYTitle.style.display="none";}
