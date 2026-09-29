@@ -2,6 +2,14 @@
 
 All notable user-visible changes are documented here.
 
+## [0.3.1] - 2026-09-30
+
+### Packaging and distribution
+- Added PyPI Trusted Publishing through GitHub Actions using OIDC; no long-lived PyPI token is stored in the repository.
+- Added package-build validation for source distribution and wheel artifacts.
+- Added install/import/CLI smoke tests for built distributions.
+- Improved package, citation, documentation, and contribution metadata for public distribution.
+
 ## [0.3.0] - 2026-09-29
 
 ### Added
