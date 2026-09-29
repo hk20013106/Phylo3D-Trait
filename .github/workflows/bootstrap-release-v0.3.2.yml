@@ -1,0 +1,38 @@
+name: Bootstrap v0.3.2 release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bootstrap-release-v0.3.2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub release v0.3.2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view v0.3.2 >/dev/null 2>&1; then
+            echo "v0.3.2 release already exists"
+            exit 0
+          fi
+          cat > /tmp/release-notes.md <<'EOF'
+          ## Phylo3D-Trait v0.3.2
+
+          Metadata/distribution release for long-term software archival and DOI registration through Zenodo.
+
+          ### Archival and distribution
+          - Synchronizes package, runtime, citation, README, AI-readable metadata, and CI version metadata at 0.3.2.
+          - Published to PyPI through the existing Trusted Publishing workflow.
+          - Intended to be automatically archived by the enabled Zenodo GitHub integration.
+
+          ### Scientific behavior
+          No scientific computation, CLI semantics, or rendering behavior changed from v0.3.1.
+          EOF
+          gh release create v0.3.2 --target "80fb3c5965f538c6bda4b4a8ed8421489c7bdfd2" --title "Phylo3D-Trait v0.3.2" --notes-file /tmp/release-notes.md
