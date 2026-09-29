@@ -1,99 +1,105 @@
-# Phylo3D-Trait
+# Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization
 
-Universal interactive 3D phylogenetic tree visualization tool with continuous trait evolution.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests Passing](https://img.shields.io/badge/tests-129%20passed-brightgreen.svg)]()
+[![WebGL2 OIT](https://img.shields.io/badge/WebGL2-Order--Independent%20Transparency-purple.svg)]()
 
-Visualizes phylogenetic tree topology, evolutionary time, and continuous trait changes as an interactive 3D WebGL (Plotly) visualization in standalone, offline-viewable HTML.
+Universal interactive 3D phylogenetic tree visualizer for continuous phenotypic and physiological trait evolution across deep time.
+
+Generates standalone, publication-quality, offline-viewable interactive 3D WebGL visualizations (*eLife* Figure 5 aesthetic) mapping phylogenetic topology, evolutionary divergence times, and ancestral trait trajectories into an orthogonal rectangular phylogram with vertical curtain meshes.
 
 <p align="center">
-  <img src="docs/assets/preview_eulipotyphla.png" alt="Phylo3D-Trait Interactive 3D Visualization" width="95%">
+  <img src="docs/assets/preview_eulipotyphla.png" alt="Phylo3D-Trait Interactive 3D Visualization (0.2 Transparency / Opacity 0.8)" width="95%">
+</p>
+<p align="center"><em>Real-world macroevolutionary dataset (Eulipotyphla, 38 species) rendered with the Four-Layer WebGL2 engine at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels.</em></p>
+
+> 📖 **Complete User & AI Agent Manual**: See [**`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`**](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md) for detailed workflows, data conventions, and agent execution guardrails.
+
+---
+
+## 1. Key Features & Architectural Innovations
+
+- 🚀 **Dual Rendering Engines**:
+  - **Fixed Four-Layer WebGL2 Depth Peeling (`--renderer four-layer`)** *(Recommended)*: Per-fragment Order-Independent Transparency (OIT) with zero external JavaScript dependencies (< 1 MB standalone HTML).
+  - **Classic Plotly Backend (`--renderer plotly`)**: Familiar Plotly.js 3D scene engine with extensive camera and layout controls.
+- 💎 **True Order-Independent Transparency (OIT)**:
+  - Bounded fragment depth peeling peels the nearest 4 curtain layers per pixel.
+  - Omission transmittance error is mathematically bounded ($\le 0.81\%$ at opacity 0.70; $\le 6.25\%$ at opacity 0.50; $\le 0.16\%$ at opacity 0.80).
+  - **Zero trace-sorting artifacts**: Completely eliminates WebGL painter's algorithm sorting glitches, popping, and trace-clipping during 360° orbits.
+- 📐 **Adaptive Front-Facing Scientific Axes (No Box Frame)**:
+  - **Clean open aesthetic**: Obstructive 5-line 3D bounding box frames have been completely eliminated.
+  - **Dynamic front-corner tracking (`frontAxisCorner`)**: Numerical axes for **Trait value ($Y$)** and **Time before present ($Z$, Ma)** automatically anchor to the viewer-facing front corner across all azimuth (`yaw`) and elevation (`pitch`) angles.
+  - **Outward ticks & titles (`outward2D`)**: Axis ticks and labels always project outward into empty screen space, never penetrating or obscuring the phylogenetic tree.
+- 🏷️ **Camera-Aware Species Label Anchoring**:
+  - Species labels dynamically detect the camera azimuth hemisphere (`eyeX`).
+  - Automatically flips alignment between positive and negative $X$ hemispheres (`translate(3px, -50%)` vs `translate(calc(-100% - 3px), -50%)`), guaranteeing taxon names project outward from tips without invading tree branches.
+- 🔍 **Interactive Node Picking & Ancestral Diagnostics**:
+  - **Terminal Tips**: Hover reveals Taxon name, Node ID, Trait value ($Y$), Evolutionary Time ($Z = 0$), and Tree Layout position ($X$).
+  - **Ancestral Internal Nodes**: Hover reveals Clade hash ID, Ancestral Trait value ($Y$), Divergence Age ($Z$, Ma), Layout position ($X$), and descendant taxon summary.
+  - **Visual Guidance**: High-contrast orange marker dot and dynamic vertical dashed projection line connecting nodes to the trait baseline.
+- 💾 **Publication-Grade Export Toolbar**:
+  - **Reset**: Instantly restore default camera preset (`yaw`, `pitch`, `zoom`).
+  - **PNG Export**: 2× Retina resolution raster export capturing curtains, centerlines, axes, labels, and colorbar into a crisp publication-ready image.
+  - **Hybrid SVG Export**: Native SVG packaging the WebGL 4-layer depth-peeled curtain raster inside an `<image>` element, with all axes, tick marks, titles, species labels, and colorbar exported as lossless, editable vector graphics (`<line>`, `<text>`, `<rect>`).
+- 🔒 **Deterministic Clade Identity**:
+  - Stable SHA-256 hash IDs for all ancestral nodes derived from alphabetically sorted descendant tip names (`clade:<hash>`).
+
+### Order-Independent Transparency (OIT): Opaque vs 0.2 Transparency
+
+<p align="center">
+  <img src="docs/assets/preview_transparency_comparison.png" alt="Opaque vs 0.2 Transparency Comparison" width="100%">
 </p>
 
-> 📖 **面向 AI Agent 与科研用户的完整操作手册**：参见 [**`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`**](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)。
+- **Left (Standard Opaque, `--opacity 1.0`)**: Foreground curtain walls completely occlude internal ancestral nodes, deeper clades, and branching topology.
+- **Right (Four-Layer OIT, `--opacity 0.8`, 20% transparency)**: Fragment-level depth peeling renders deep-time ancestral lineages, intermediate clades, and trait shifts clearly visible through semi-transparent curtains without any trace-sorting artifacts or popping across 360° orbits.
 
 ---
 
-## 1. Overview
+## 2. Rendering Engines Comparison
 
-### What Phylo3D-Trait Does
-- **Input**:
-  1. Phylogenetic tree (Newick or Nexus format).
-  2. Trait values table (CSV or TSV) containing continuous trait values for all tips and internal/ancestral nodes.
-- **Output**:
-  - A standalone, publication-quality interactive 3D HTML visualization (*eLife* Figure 5 style) featuring an orthogonal rectangular phylogram with continuous vertical curtain meshes.
-
-### What Phylo3D-Trait Does NOT Do
-> [!IMPORTANT]
-> **No Built-in Ancestral State Reconstruction**:
-> **Phylo3D-Trait does NOT perform ancestral-state reconstruction (ASR).** All tip and internal-node trait values must be computed beforehand by the user (e.g. via `phytools::fastAnc()`, `ape::ace()`, Brownian motion, or Ornstein-Uhlenbeck models in R/Python) and provided in the trait values table.
+| Feature / Capability | Four-Layer WebGL2 (`--renderer four-layer`) | Classic Plotly (`--renderer plotly`) |
+| :--- | :--- | :--- |
+| **Primary Use Case** | **Publication figures, transparency, clean presentation** | Standard exploration, legacy workflows |
+| **Transparency Method** | **Fragment-level Depth Peeling (4 layers OIT)** | Primitive-level Painter's Algorithm |
+| **Transparency Quality** | **Glitch-free across 360° orbits, no popping** | Trace sorting / camera sorting required |
+| **HTML Bundle Size** | **Ultra-lightweight (< 1 MB self-contained)** | Heavier (~3.5 MB with Plotly.js CDN/bundle) |
+| **JS Dependencies** | **Zero external libraries (pure native WebGL2 + SVG)** | Requires Plotly.js runtime |
+| **Scientific Axes** | **Adaptive Front-Corner tracking (Y & Z only, No Box Frame)** | Full 3D Cartesian Bounding Box |
+| **Interactive Hover** | **Tips + Internal Nodes (descendants & vertical guide line)** | Tips only (Scatter3d markers) |
+| **Outward Label Flip** | **Native dynamic camera-aware flip** | Plotly textposition anchor |
+| **Toolbar & Export** | **Built-in Reset, 2× PNG, and Hybrid Vector/Raster SVG** | Plotly standard modebar snapshot |
 
 ---
 
-## 2. Scientific Coordinate System
+## 3. Scientific Coordinate System
 
-The 3D coordinate space maps strictly as follows:
+The 3D space is mapped to an orthogonal rectangular phylogram:
 
 | Axis | Scientific Meaning | Description |
 |---|---|---|
-| **X** | **Tree Layout** | Horizontal separation of lineages ($0, 1, \dots, N-1$ at terminal tips; internal nodes positioned at children centroids). Terminal species labels keep their exact terminal-node Tree Layout coordinate and are anchored just beyond the present plane, extending outward from each tip. |
-| **Y** | **Trait Value ("Height")** | Trait value directly determines vertical elevation in 3D space. Low trait $\rightarrow$ low Y; high trait $\rightarrow$ high Y. |
-| **Z** | **Evolutionary Time** | Divergence age / time before present. Tips at $Z = 0$, internal nodes at $Z > 0$, root at $Z = \text{root\_age}$. |
+| **$X$** | **Tree Layout** | Horizontal lineage separation ($0, 1, \dots, N-1$ at terminal tips; internal nodes positioned at children centroids). |
+| **$Y$** | **Trait Value ("Height")** | Trait value directly determines vertical elevation in 3D space. Low trait $\rightarrow$ low $Y$; high trait $\rightarrow$ high $Y$. |
+| **$Z$** | **Evolutionary Time** | Divergence age / time before present. Tips at $Z = 0$, internal nodes at $Z > 0$, root at $Z = \text{root\_age}$ (Ma). |
 
 $$\text{Point}_k = (X_k, \text{Trait}_k, \text{Time}_k)$$
 
-### Scientific mapping of height and color
-- **Top branch geometry** always obeys `Y = Trait`, and branch color is always derived from the same local trait value.
-- **Default curtain mode (`height`)** preserves the historical invariant `vertex color intensity == vertex Y`, producing a vertical color gradient down to the baseline.
-- **Optional curtain mode (`branch`)** treats the curtain as a geometric projection only: each vertical fall-down line inherits the local branch trait color from its top point. This removes the artificial vertical gradient while allowing color to change continuously along the branch.
-- **Global normalization** uses one trait scale across the tree. In `branch` mode, a lower geometric baseline does not expand or compress the scientific trait color domain.
+### Coupling of Height and Color
+- **Top branch geometry** strictly obeys $Y = \text{Trait}$, and branch top lines are colored by the local trait value.
+- **Curtain Mode `branch` (`--curtain-color-mode branch`)**: Vertically projects the local top branch trait color down each panel to the baseline. This removes artificial vertical gradients while preserving continuous evolutionary trait transitions along the branches.
+- **Curtain Mode `height` (`--curtain-color-mode height`, default)**: Preserves the historical vertical gradient where `vertex color intensity == vertex Y`.
+- **Independent Color Reversal (`--reverse-colorscale`)**: Reverses only the color palette lookup table without inverting trait heights or modifying scientific values.
+
+> [!IMPORTANT]
+> **No Built-in Ancestral State Reconstruction**:
+> **Phylo3D-Trait is a visualization engine; it does not perform ASR.** All tip and ancestral node trait values must be reconstructed beforehand (e.g. via `phytools::fastAnc()`, `ape::ace()`, Brownian Motion, or OU models) and supplied in the input CSV/TSV table.
 
 ---
 
-## 3. Geometric Architecture
-
-### Orthogonal Rectangular Phylogram
-Each biological edge connecting `parent (Xp, Yp, Zp)` to `child (Xc, Yc, Zc)` is decomposed into two orthogonal geometric subsegments:
-
-1. **Connector Subsegment** (`(Xp, Yp, Zp) -> (Xc, Yp, Zp)`):
-   - Horizontal lineage splitting along $X$ at constant parent time $Z_p$.
-   - Trait height and color intensity remain constant at parent trait $Y_p$.
-2. **Lineage Subsegment** (`(Xc, Yp, Zp) -> (Xc, Yc, Zc)`):
-   - Evolutionary descent through time along $Z$ at constant child layout $X_c$.
-   - Trait height and color intensity interpolate continuously from $Y_p \to Y_c$.
-
-### Continuous Branch Curtain Surfaces (Mesh3d)
-- Underneath each connector and lineage path, continuous vertical mesh panels (`go.Mesh3d`) descend to a common baseline:
-  $$\text{baseline\_y} = \text{trait}_{\min}$$
-- **Opaque Depth Buffering**: Rendered with `opacity = 1.0` by default for native WebGL Z-buffer depth occlusion from any viewing angle.
-- **Curtain coloring**: `height` (default) gives the original vertical gradient; `branch` vertically projects each local branch color to the baseline.
-- **Independent color reversal**: `--reverse-colorscale` reverses only the color lookup table; it does not alter trait heights or raw values.
-- **Top Outline Synergy**: Paired with clean top branch boundary lines (`width = 1.0`).
-
----
-
-## 4. Deterministic Stable Clade IDs
-
-Internal ancestral nodes are identified using a deterministic hash of their alphabetically sorted descendant tip names:
-
-$$\text{Node ID} = \text{clade}:\text{SHA256}(\text{sorted}(\text{descendant\_tips}))[:12]$$
-
-> [!TIP]
-> **Do not guess internal node IDs manually.** Always generate a node values template using `phylo3d-trait template-values` to obtain the exact, canonical clade IDs for your tree.
-
----
-
-## 5. Standard Workflow for Real Research Data
-
-### Recommended Project Layout (Suggested)
-```text
-my_project/
-  tree.nwk                 # Newick or Nexus tree file
-  node_values_template.csv # Generated template
-  node_values.csv          # Filled trait values table
-  tree3d.html              # Interactive 3D visualization
-```
+## 4. Quickstart: 3-Step Reproducible Workflow
 
 ### Step 1: Generate Node Values Template
-Extract all tip names and deterministic ancestral clade IDs from your tree into a CSV template:
+Extract all tip names and canonical ancestral clade IDs from your tree:
 
 ```bash
 python -m phylo3d_trait.cli template-values \
@@ -102,7 +108,7 @@ python -m phylo3d_trait.cli template-values \
 ```
 
 ### Step 2: Fill in Trait Values
-Fill in the `trait` column with your measured tip values and reconstructed ancestral states (from `fastAnc`, `ace`, etc.):
+Fill in the `trait` column with your measured tip values and reconstructed ancestral states:
 
 ```csv
 node_id,trait
@@ -116,102 +122,97 @@ clade:17f5f129f4c7,2.50
 ```
 
 > [!IMPORTANT]
-> **Completeness Requirement**: All tips, ancestral nodes, and the root MUST have explicit numeric trait values. If any node is missing, the tool fails loudly with an informative error listing the unassigned nodes.
+> **Completeness Requirement**: All tips, internal nodes, and the root must have explicit numeric trait values. If any node is unassigned, the tool halts immediately with an informative error listing the missing nodes.
 
-### Step 3: Render Interactive 3D HTML
-Generate the standalone interactive 3D HTML visualization:
-
-```bash
-python -m phylo3d_trait.cli plot \
-  --tree path/to/tree.nwk \
-  --values path/to/node_values.csv \
-  --output path/to/tree3d.html
-```
-
-Branch-projected display (reverse only the low/high color mapping, and color each fall-down curtain by the local branch trait) while leaving the trait-height axis unchanged:
+### Step 3: Render Interactive 3D Visualization
+Render an interactive 3D HTML visualization using the **Four-Layer WebGL2 engine**:
 
 ```bash
 python -m phylo3d_trait.cli plot \
   --tree path/to/tree.nwk \
   --values path/to/node_values.csv \
-  --output path/to/tree3d_branch_colors.html \
+  --output path/to/tree3d.html \
+  --renderer four-layer \
+  --opacity 0.85 \
   --reverse-colorscale \
   --curtain-color-mode branch \
   --centerline-color trait
 ```
 
+Open `tree3d.html` directly in any modern web browser — no web server or internet connection required!
+
 ---
 
-## 6. Command Line Interface (CLI) Reference
+## 5. Command Line Interface (CLI) Reference
 
-The tool is invoked via `python -m phylo3d_trait.cli <command>` (or `phylo3d-trait <command>` when installed).
+The CLI is invoked via `python -m phylo3d_trait.cli <command>` (or `phylo3d-trait <command>` when installed).
 
 ### Subcommand: `template-values`
 ```bash
 python -m phylo3d_trait.cli template-values -h
 ```
 - `--tree, -t` *(required)*: Path to Newick or Nexus tree file.
-- `--output, -o` *(required)*: Path to save the template CSV.
+- `--output, -o` *(required)*: Path to save the generated template CSV.
 - `--default-val`: Optional placeholder string for the trait column (default: `""`).
-
-### Four-layer transparency backend
-
-For true camera-dependent transparency without whole-curtain painter sorting, use the fixed four-layer renderer:
-
-```bash
-python -m phylo3d_trait.cli plot \
-  --tree path/to/tree.nwk \
-  --values path/to/node_values.csv \
-  --output path/to/tree3d_four_layer.html \
-  --renderer four-layer \
-  --opacity 0.7 \
-  --reverse-colorscale \
-  --curtain-color-mode branch \
-  --centerline-color trait
-```
-
-The backend supports opacity 0.5-1.0 (transparency 0-0.5). For every screen pixel it peels only the nearest four curtain fragments. Layers 1-3 use standard alpha compositing; layer 4 is the opaque terminal layer and fragments behind it are not computed. At the maximum supported transparency of 0.5, the omitted transmittance behind layer 4 is bounded by `0.5^4 = 6.25%`.
-
-This backend does not use `Plotly.moveTraces`, bounding-box depth keys, nearest-corner sorting, or whole-curtain camera sorting.
 
 ### Subcommand: `plot`
 ```bash
 python -m phylo3d_trait.cli plot -h
 ```
+
+#### Core Inputs & Outputs
 - `--tree, -t` *(required)*: Path to Newick or Nexus tree file.
 - `--values, -v` *(required)*: Path to CSV or TSV trait values table.
 - `--output, -o` *(required)*: Path to output standalone HTML file.
 - `--title`: Title displayed above the 3D scene.
-- `--colorscale`: Continuous colorscale name (e.g. `Turbo`, `Viridis`, `Plasma`, `Spectral`, default: `Turbo`).
-- `--reverse-colorscale`: Reverse only the color mapping while keeping trait heights/scientific values unchanged.
-- `--curtain-color-mode {height,branch}`: `height` keeps the original vertical gradient; `branch` makes each vertical fall-down line inherit the local branch trait color.
-- `--camera-preset`: Initial viewing angle (`elife` [default], `root_front`, `tips_front`).
-- `--background`: Background styling (`white` [default] or `transparent`).
-- `--segments, -s`: Linear subdivisions per branch segment (default: `10`).
-- `--baseline-y`: Custom baseline Y trait plane height (default: minimum observed trait).
-- `--baseline-raw-value`: Custom numeric trait value displayed at baseline Y on Y axis and colorbar (default: `raw_trait_max + 2` in reverse transform).
-- `--trait-display-range START END`: Optional linear rescaling of raw trait values `[min, max]` to target display coordinates `[START, END]` (e.g. `--trait-display-range 13 5` for reverse height mapping). Raw scientific traits remain unaltered and are displayed on axis/colorbar ticks and hover tooltips.
-- `--trait-display-offset OFFSET`: Geometric zero shift. `display_trait = raw_trait - OFFSET` (e.g. `--trait-display-offset 4` maps raw trait `4` to display Y `0`, raw `10` to display `6`). Axis ticks and hover tooltips still show raw scientific values.
-- `--trait-axis-scale SCALE`: **Visual-only** Trait (Y) axis aspect scale factor (default `1.0`). `0.5` halves the Trait visual height; `1.5` stretches it to 150%. It multiplies only the scene Trait aspect ratio: raw/display trait values, ticks, hover values, colors, mesh geometry, Time-before-present and Tree Layout dimensions are all unchanged. Must be a finite number `> 0` (0, negative, NaN and inf are rejected).
-- `--tip-label-offset FRACTION`: Outward offset of terminal species labels beyond the present plane, expressed as a fraction of the Time-before-present span (default `0.03`). `0.0` keeps labels exactly on the present plane. Purely visual anchor offset; Tree Layout coordinates still equal the exact tip coordinates. Must be a finite number `>= 0`.
-- `--opacity`: **Standard opacity** of the curtain meshes only (default `1.0`). `1.0` = fully opaque (0% transparent), `0.9` = 90% opaque, `0.7` = 70% opaque (30% transparent), `0.0` = fully transparent. Species labels, hover traces and centerlines keep their own styling; mesh geometry and colors never change.
+- `--renderer {four-layer, plotly}`: Rendering engine backend (default: `plotly`; `four-layer` recommended).
+
+#### Rendering, Transparency & Aesthetics
+- `--opacity`: Curtain mesh opacity (default: `1.0`). In `four-layer` mode, supports `0.5`–`1.0` (0%–50% transparency); in `plotly` mode, supports `0.0`–`1.0`.
+- `--curtain-color-mode {branch, height}`: `branch` vertically projects local branch trait color; `height` applies a vertical gradient.
+- `--centerline-color`: Branch top outline color (`dark` [default], `trait`, or custom CSS color).
+- `--colorscale`: Continuous palette name (e.g. `Turbo`, `Viridis`, `Plasma`, `Spectral`, default: `Turbo`).
+- `--reverse-colorscale`: Reverses color palette without altering trait heights or raw values.
 - `--branch-width`: Line width for 3D branch top outlines (default: `1.0`).
-- `--show-node-markers`: Render diamond markers at ancestral nodes (default: `False`).
+- `--background {white, transparent}`: Background styling (default: `white`).
+- `--segments, -s`: Linear interpolation subdivisions per branch (default: `10`).
+
+#### Trait Geometry & Aspect Ratios
+- `--baseline-y`: Custom baseline $Y$ trait plane elevation (default: minimum observed trait).
+- `--baseline-raw-value`: Custom numeric trait value displayed at baseline $Y$ on axis and colorbar.
+- `--trait-display-offset OFFSET`: Geometric zero shift ($Y_{\text{display}} = \text{Trait}_{\text{raw}} - \text{OFFSET}$). Axis ticks and hover tooltips still show raw scientific values.
+- `--trait-display-range START END`: Linear remapping of raw traits `[min, max]` to target display coordinates `[START, END]`.
+- `--trait-axis-scale SCALE`: Visual-only Trait ($Y$) axis aspect ratio multiplier (default: `1.0`). E.g., `0.5` compresses visual height by half; `1.5` stretches it by 150%. Scientific values, ticks, colors, and mesh coordinates remain uncorrupted.
+
+#### Camera, Labels & Viewport
+- `--camera-preset {elife, root_front, tips_front}`: Initial camera angle (default: `elife`).
+- `--tip-label-offset FRACTION`: Outward offset of terminal species labels beyond the present plane, expressed as a fraction of time span (default: `0.03`).
+- `--no-labels`: Disable terminal taxon labels along the Tree Layout axis.
+
+#### Display Toggles (Visual-Only Layer)
+- `--no-x-axis`: Hide Tree Layout ($X$) axis line and baseline markers.
+- `--no-y-axis`: Hide Trait value ($Y$) numerical axis line, ticks, labels, and title.
+- `--no-z-axis`: Hide Time before present ($Z$) numerical axis line, ticks, labels, and title.
+- `--no-tip-hover`: Disable interactive hover tooltip and indicator on terminal tip taxa.
+- `--no-internal-hover`: Disable interactive hover tooltip and indicator on internal ancestral nodes.
 - `--no-mesh`: Disable continuous curtain mesh surfaces.
 - `--no-centerline`: Disable branch top centerline outlines.
-- `--no-labels`: Disable terminal taxon labels on the Tree Layout axis (hides tick labels without reverting to numeric coordinates).
-- `--no-x-axis`: Hide Tree Layout (X) axis line, grid, and frame lines (default: shown without numeric tick labels).
-- `--no-y-axis`: Hide Trait value (Y) axis line, ticks, labels, and title (default: shown).
-- `--no-z-axis`: Hide Time before present (Z) axis line, ticks, labels, and title (default: shown).
-- `--no-tip-hover`: Disable interactive hover tooltip and indicator on terminal tip taxa (default: enabled).
-- `--no-internal-hover`: Disable interactive hover tooltip and indicator on internal ancestral nodes (default: enabled).
+- `--show-node-markers`: Render diamond markers at ancestral nodes (default: `False`).
 
 ---
 
-## 7. Python API
+## 6. Python API Reference
+
+Phylo3D-Trait can be integrated directly into Python pipelines and computational workflows:
 
 ```python
-from phylo3d_trait import build_figure, build_plot_data, load_trait_values, parse_tree
+from phylo3d_trait import (
+    parse_tree,
+    load_trait_values,
+    build_plot_data,
+    build_figure,
+    build_four_layer_html,
+)
 
 # 1. Parse tree and load trait table
 tree = parse_tree("path/to/tree.nwk")
@@ -223,37 +224,54 @@ plot_data = build_plot_data(
     trait_values=traits,
     num_segments=10,
     colorscale="Turbo",
+    curtain_color_mode="branch",
+    reverse_colorscale=True,
 )
 
-# 3. Create interactive Plotly figure with eLife camera
+# 3A. Render with modern Four-Layer WebGL2 engine (OIT + Adaptive Axes)
+html_content = build_four_layer_html(
+    plot_data=plot_data,
+    opacity=0.85,
+    camera_preset="elife",
+    centerline_color="trait",
+)
+with open("tree3d_four_layer.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+# 3B. Or render with classic Plotly engine
 fig = build_figure(
     plot_data=plot_data,
     camera_preset="elife",
     background="white",
 )
-
-# 4. Save to standalone HTML
-fig.write_html("path/to/tree3d.html", include_plotlyjs="cdn")
+fig.write_html("tree3d_plotly.html", include_plotlyjs="cdn")
 ```
 
 ---
 
-## 8. Built-in Examples
+## 7. Built-in Examples
 
 ### Example 1: Standard 4-Taxon Dated Phylogeny
 - **Tree**: [`examples/example1/tree.nwk`](examples/example1/tree.nwk) (ultrametric dated tree)
 - **Trait table**: [`examples/example1/node_values.csv`](examples/example1/node_values.csv)
-- **Interactive output**: [`examples/example1/tree3d.html`](examples/example1/tree3d.html)
+- **Output preview**: [`examples/example1/tree3d.html`](examples/example1/tree3d.html)
 
 <p align="center">
   <img src="docs/assets/preview_example1.png" alt="Example 1 3D Phylogeny" width="90%">
 </p>
 
-### Example 2: 6-Taxon Nested Phylogeny with Baseline Y = 0
+### Example 2: 6-Taxon Nested Phylogeny with Baseline $Y = 0$
 - **Tree**: [`examples/example2/tree.nwk`](examples/example2/tree.nwk) (nested multi-level clades)
 - **Trait table**: [`examples/example2/node_values.csv`](examples/example2/node_values.csv)
-- **Interactive output**: [`examples/example2/tree3d.html`](examples/example2/tree3d.html)
-- **Command**: `python -m phylo3d_trait.cli plot --tree examples/example2/tree.nwk --values examples/example2/node_values.csv --output examples/example2/tree3d.html --baseline-y 0`
+- **Command**:
+  ```bash
+  python -m phylo3d_trait.cli plot \
+    --tree examples/example2/tree.nwk \
+    --values examples/example2/node_values.csv \
+    --output examples/example2/tree3d.html \
+    --baseline-y 0 \
+    --renderer four-layer
+  ```
 
 <p align="center">
   <img src="docs/assets/preview_example2.png" alt="Example 2 3D Phylogeny" width="90%">
@@ -261,13 +279,25 @@ fig.write_html("path/to/tree3d.html", include_plotlyjs="cdn")
 
 ---
 
-## 9. Installation & Testing
+## 8. Installation & Testing
 
 ```bash
-# Install package in editable mode
+# Clone the repository
+git clone https://github.com/hk20013106/Phylo3D-Trait.git
+cd Phylo3D-Trait
+
+# Install package in editable development mode
 pip install -e .
 
-# Run complete test suite
+# Run the complete test suite (129 unit & integration tests)
 pytest tests/ -v
 ```
 
+---
+
+## 9. Citation & Contact
+
+If you use **Phylo3D-Trait** in your research, please cite:
+
+- **Phylo3D-Trait Software**: He, K., et al. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*. GitHub: [https://github.com/hk20013106/Phylo3D-Trait](https://github.com/hk20013106/Phylo3D-Trait).
+- **Macroevolutionary Application**: Hemoglobin buffering power ($\beta\text{Hb4}$) and respiratory adaptation across deep-time mammal and bird phylogenies.
