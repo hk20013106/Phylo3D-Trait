@@ -2,19 +2,27 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests Passing](https://img.shields.io/badge/tests-129%20passed-brightgreen.svg)]()
+[![CI](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml/badge.svg)](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml)
 [![WebGL2 OIT](https://img.shields.io/badge/WebGL2-Order--Independent%20Transparency-purple.svg)]()
 
-Universal interactive 3D phylogenetic tree visualizer for continuous phenotypic and physiological trait evolution across deep time.
+**Interactive 3D visualization of continuous trait evolution on phylogenetic trees.**
 
-Generates standalone, publication-quality, offline-viewable interactive 3D WebGL visualizations (*eLife* Figure 5 aesthetic) mapping phylogenetic topology, evolutionary divergence times, and ancestral trait trajectories into an orthogonal rectangular phylogram with vertical curtain meshes.
+Phylo3D-Trait is a Python CLI and library for mapping continuous phenotypic, physiological, morphological, genomic, or other quantitative traits onto phylogenetic trees in interactive 3D. For dated trees, evolutionary time is shown explicitly along the Z axis.
+
+**Input:** a Newick/Nexus phylogeny plus CSV/TSV values for terminal and ancestral nodes.  
+**Output:** a standalone, offline-viewable WebGL2 HTML visualization combining phylogenetic topology, divergence time, continuous trait trajectories, ancestral-state estimates, interactive node inspection, and publication-quality PNG/SVG export.
+
+Phylo3D-Trait is designed for **macroevolution, phylogenetic comparative biology, continuous-trait evolution, ancestral-state visualization, and scientific 3D phylogenetic visualization**. It visualizes supplied ancestral-state estimates; it does **not** infer phylogenies, date trees, or perform ancestral-state reconstruction (ASR). Results from workflows such as `phytools::fastAnc()`, `ape::ace()`, Brownian-motion models, or OU models can be supplied as node values.
+
+Generates publication-oriented orthogonal rectangular phylograms with vertical curtain meshes. The recommended Four-Layer WebGL2 renderer uses bounded depth peeling for order-independent transparency while remaining self-contained in a single HTML file.
 
 <p align="center">
   <img src="docs/assets/preview_eulipotyphla.png" alt="Phylo3D-Trait Interactive 3D Visualization (0.2 Transparency / Opacity 0.8)" width="95%">
 </p>
 <p align="center"><em>Real-world macroevolutionary dataset (Eulipotyphla, 38 species) rendered with the Four-Layer WebGL2 engine at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels.</em></p>
 
-> 📖 **Complete User & AI Agent Manual**: See [**`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`**](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md) for detailed workflows, data conventions, and agent execution guardrails.
+> 📖 **User & AI Agent Manual**: [`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)  
+> 🐛 **Bug reports / feature requests**: use [GitHub Issues](https://github.com/hk20013106/Phylo3D-Trait/issues). Pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
@@ -286,18 +294,32 @@ fig.write_html("tree3d_plotly.html", include_plotlyjs="cdn")
 git clone https://github.com/hk20013106/Phylo3D-Trait.git
 cd Phylo3D-Trait
 
-# Install package in editable development mode
+# Install package from source
 pip install -e .
 
-# Run the complete test suite (129 unit & integration tests)
+# Development install
+pip install -e ".[dev]"
+
+# Run the test suite
 pytest tests/ -v
 ```
 
 ---
 
-## 9. Citation & Contact
+## 9. Citation, Support & Contributing
 
-If you use **Phylo3D-Trait** in your research, please cite:
+If you use **Phylo3D-Trait** in research, cite the software using [`CITATION.cff`](CITATION.cff). A DOI will be added after archival release.
 
-- **Phylo3D-Trait Software**: He, K., et al. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*. GitHub: [https://github.com/hk20013106/Phylo3D-Trait](https://github.com/hk20013106/Phylo3D-Trait).
-- **Macroevolutionary Application**: Hemoglobin buffering power ($\beta\text{Hb4}$) and respiratory adaptation across deep-time mammal and bird phylogenies.
+Current software citation:
+
+> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.0. GitHub: https://github.com/hk20013106/Phylo3D-Trait
+
+The motivating macroevolutionary application concerns hemoglobin buffering power ($\beta\text{Hb4}$) and respiratory adaptation across deep-time mammal and bird phylogenies.
+
+### Contributing
+
+Bug reports, reproducible rendering problems, feature requests, documentation improvements, and pull requests are welcome. Please use the GitHub issue templates and include the smallest reproducible tree/value files when reporting a visualization or parsing bug. See [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting code.
+
+### Project scope
+
+Phylo3D-Trait is a visualization engine. It does not perform phylogenetic inference, tree dating, sequence analysis, statistical model fitting, or ancestral-state reconstruction.
