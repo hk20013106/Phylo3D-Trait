@@ -5,8 +5,8 @@ type: software
 authors:
   - family-names: "He"
     given-names: "Kai"
-version: "0.3.0"
-date-released: "2026-09-29"
+version: "0.3.1"
+date-released: "2026-09-30"
 license: MIT
 repository-code: "https://github.com/hk20013106/Phylo3D-Trait"
 url: "https://github.com/hk20013106/Phylo3D-Trait"
