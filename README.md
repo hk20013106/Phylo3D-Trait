@@ -154,6 +154,26 @@ python -m phylo3d_trait.cli template-values -h
 - `--output, -o` *(required)*: Path to save the template CSV.
 - `--default-val`: Optional placeholder string for the trait column (default: `""`).
 
+### Four-layer transparency backend
+
+For true camera-dependent transparency without whole-curtain painter sorting, use the fixed four-layer renderer:
+
+```bash
+python -m phylo3d_trait.cli plot \
+  --tree path/to/tree.nwk \
+  --values path/to/node_values.csv \
+  --output path/to/tree3d_four_layer.html \
+  --renderer four-layer \
+  --opacity 0.7 \
+  --reverse-colorscale \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+The backend supports opacity 0.5-1.0 (transparency 0-0.5). For every screen pixel it peels only the nearest four curtain fragments. Layers 1-3 use standard alpha compositing; layer 4 is the opaque terminal layer and fragments behind it are not computed. At the maximum supported transparency of 0.5, the omitted transmittance behind layer 4 is bounded by `0.5^4 = 6.25%`.
+
+This backend does not use `Plotly.moveTraces`, bounding-box depth keys, nearest-corner sorting, or whole-curtain camera sorting.
+
 ### Subcommand: `plot`
 ```bash
 python -m phylo3d_trait.cli plot -h
