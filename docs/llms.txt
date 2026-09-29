@@ -3,7 +3,9 @@
 > Python software for interactive 3D visualization of continuous trait evolution and supplied ancestral-state estimates on phylogenetic trees.
 
 Canonical repository: https://github.com/hk20013106/Phylo3D-Trait
-Version: 0.3.0
+PyPI: https://pypi.org/project/phylo3d-trait/
+Project site: https://hk20013106.github.io/Phylo3D-Trait/
+Version: 0.3.1
 License: MIT
 
 ## Core capabilities
