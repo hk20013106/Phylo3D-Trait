@@ -34,7 +34,7 @@ The 3D coordinate space maps strictly as follows:
 
 | Axis | Scientific Meaning | Description |
 |---|---|---|
-| **X** | **Tree Layout** | Horizontal separation of lineages ($0, 1, \dots, N-1$ at terminal tips; internal nodes positioned at children centroids). |
+| **X** | **Tree Layout** | Horizontal separation of lineages ($0, 1, \dots, N-1$ at terminal tips; internal nodes positioned at children centroids). Terminal species labels keep their exact terminal-node Tree Layout coordinate and are anchored just beyond the present plane, extending outward from each tip. |
 | **Y** | **Trait Value ("Height")** | Trait value directly determines vertical elevation in 3D space. Low trait $\rightarrow$ low Y; high trait $\rightarrow$ high Y. |
 | **Z** | **Evolutionary Time** | Divergence age / time before present. Tips at $Z = 0$, internal nodes at $Z > 0$, root at $Z = \text{root\_age}$. |
 
@@ -154,6 +154,26 @@ python -m phylo3d_trait.cli template-values -h
 - `--output, -o` *(required)*: Path to save the template CSV.
 - `--default-val`: Optional placeholder string for the trait column (default: `""`).
 
+### Four-layer transparency backend
+
+For true camera-dependent transparency without whole-curtain painter sorting, use the fixed four-layer renderer:
+
+```bash
+python -m phylo3d_trait.cli plot \
+  --tree path/to/tree.nwk \
+  --values path/to/node_values.csv \
+  --output path/to/tree3d_four_layer.html \
+  --renderer four-layer \
+  --opacity 0.7 \
+  --reverse-colorscale \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+The backend supports opacity 0.5-1.0 (transparency 0-0.5). For every screen pixel it peels only the nearest four curtain fragments. Layers 1-3 use standard alpha compositing; layer 4 is the opaque terminal layer and fragments behind it are not computed. At the maximum supported transparency of 0.5, the omitted transmittance behind layer 4 is bounded by `0.5^4 = 6.25%`.
+
+This backend does not use `Plotly.moveTraces`, bounding-box depth keys, nearest-corner sorting, or whole-curtain camera sorting.
+
 ### Subcommand: `plot`
 ```bash
 python -m phylo3d_trait.cli plot -h
@@ -171,12 +191,20 @@ python -m phylo3d_trait.cli plot -h
 - `--baseline-y`: Custom baseline Y trait plane height (default: minimum observed trait).
 - `--baseline-raw-value`: Custom numeric trait value displayed at baseline Y on Y axis and colorbar (default: `raw_trait_max + 2` in reverse transform).
 - `--trait-display-range START END`: Optional linear rescaling of raw trait values `[min, max]` to target display coordinates `[START, END]` (e.g. `--trait-display-range 13 5` for reverse height mapping). Raw scientific traits remain unaltered and are displayed on axis/colorbar ticks and hover tooltips.
-- `--opacity`: Opacity of curtain meshes (default: `1.0` for solid depth buffering).
+- `--trait-display-offset OFFSET`: Geometric zero shift. `display_trait = raw_trait - OFFSET` (e.g. `--trait-display-offset 4` maps raw trait `4` to display Y `0`, raw `10` to display `6`). Axis ticks and hover tooltips still show raw scientific values.
+- `--trait-axis-scale SCALE`: **Visual-only** Trait (Y) axis aspect scale factor (default `1.0`). `0.5` halves the Trait visual height; `1.5` stretches it to 150%. It multiplies only the scene Trait aspect ratio: raw/display trait values, ticks, hover values, colors, mesh geometry, Time-before-present and Tree Layout dimensions are all unchanged. Must be a finite number `> 0` (0, negative, NaN and inf are rejected).
+- `--tip-label-offset FRACTION`: Outward offset of terminal species labels beyond the present plane, expressed as a fraction of the Time-before-present span (default `0.03`). `0.0` keeps labels exactly on the present plane. Purely visual anchor offset; Tree Layout coordinates still equal the exact tip coordinates. Must be a finite number `>= 0`.
+- `--opacity`: **Standard opacity** of the curtain meshes only (default `1.0`). `1.0` = fully opaque (0% transparent), `0.9` = 90% opaque, `0.7` = 70% opaque (30% transparent), `0.0` = fully transparent. Species labels, hover traces and centerlines keep their own styling; mesh geometry and colors never change.
 - `--branch-width`: Line width for 3D branch top outlines (default: `1.0`).
 - `--show-node-markers`: Render diamond markers at ancestral nodes (default: `False`).
 - `--no-mesh`: Disable continuous curtain mesh surfaces.
 - `--no-centerline`: Disable branch top centerline outlines.
-- `--no-labels`: Disable text labels on terminal tips.
+- `--no-labels`: Disable terminal taxon labels on the Tree Layout axis (hides tick labels without reverting to numeric coordinates).
+- `--no-x-axis`: Hide Tree Layout (X) axis line, grid, and frame lines (default: shown without numeric tick labels).
+- `--no-y-axis`: Hide Trait value (Y) axis line, ticks, labels, and title (default: shown).
+- `--no-z-axis`: Hide Time before present (Z) axis line, ticks, labels, and title (default: shown).
+- `--no-tip-hover`: Disable interactive hover tooltip and indicator on terminal tip taxa (default: enabled).
+- `--no-internal-hover`: Disable interactive hover tooltip and indicator on internal ancestral nodes (default: enabled).
 
 ---
 

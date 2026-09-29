@@ -238,6 +238,17 @@ opacity = 1.0
 
 所有 surface 完全不透明，由 WebGL depth buffer 根据当前 camera 自动决定前后遮挡。
 
+`--opacity` 采用**标准 opacity（不透明度）**语义，且只作用于 curtain Mesh3d：
+
+```text
+1.0 = 完全不透明（0% transparent）
+0.9 = 90% 不透明
+0.7 = 70% 不透明（30% transparent）
+0.0 = 完全透明
+```
+
+降低 opacity 可以观察后方结构；透明 Mesh3d 的 alpha 混合不对三角形的绘制顺序做逐面排序，旋转时可能出现正常的透明深度排序现象，这不是几何或数据变化。species labels、hover trace 与 centerline 的样式不受 `--opacity` 影响。
+
 不要：
 
 - 根据 X 顺序手动隐藏后面 branch
@@ -289,7 +300,7 @@ background = white
 showbackground = False
 internal-node markers = off
 tip markers = off
-tip labels = on
+tip labels = on (Tree layout axis ticks)
 centerline = thin
 projection = orthographic
 ```
@@ -703,16 +714,24 @@ python -m phylo3d_trait.cli plot --help
 | `--curtain-color-mode` | `height`, `branch` | `height` | `height` 为原始垂直渐变；`branch` 将每个局部 branch 的 Trait 颜色垂直投影至 baseline |
 | `--camera-preset` | `elife`, `root_front`, `tips_front` | `elife` | 初始视角（`elife`: MRCA 在前景、Trait 轴竖直、正交投影） |
 | `--background` | `white`, `transparent` | `white` | 背景风格（默认纯白，关闭 3D 墙壁；或全透明） |
-| `--opacity` | float (0.0 - 1.0) | `1.0` | 幕帘曲面不透明度（默认 1.0 启用原生 WebGL 深度遮挡） |
+| `--opacity` | float (0.0 - 1.0) | `1.0` | **标准 opacity（不透明度）**：`1.0` = 完全不透明，`0.9` = 90% 不透明，`0.7` = 70% 不透明（30% 透明），`0.0` = 完全透明。仅作用于 curtain Mesh3d，不影响 species labels / hover / centerline |
 | `--branch-width` | float | `1.0` | 分支顶缘轮廓线线宽 |
 | `--baseline-y` | float | `trait_min` | 自定义基准平面 $Y$ 高度 |
 | `--trait-display-range` | float float (例如 `13 5`) | `None` | 线性显示重标定（将原始 Trait `[min, max]` 线性映射至 `[START, END]` 显示空间；不修改科研原始数据，hover 保留 raw 与 display 两套数值） |
+| `--trait-display-offset` | float | `None` | 几何零点平移：`display_trait = raw_trait - OFFSET`（如 `4`：raw 4 → display 0，raw 10 → display 6）；轴刻度与 hover 仍显示 raw 科研值 |
+| `--trait-axis-scale` | float > 0 | `1.0` | **纯视觉**参数：仅缩放 Trait（Y）维度的 scene aspect ratio（`0.5` = Trait 视觉高度压缩为原来一半）。不改变 raw/display trait、刻度、hover、颜色、mesh 几何、Time before present 与 Tree Layout 视觉尺寸。`0` / 负数 / `NaN` / `inf` 会被拒绝（fail loudly） |
+| `--tip-label-offset` | float >= 0 | `0.03` | 物种名标签向 present 平面外侧（远离树体）的偏移量，表述为 Time before present span 的比例；`0.0` = 标签恰好贴在 present 平面。标签的 Tree Layout 坐标仍严格等于对应 tip，纯视觉锚点偏移 |
 | `--segments, -s` | int | `10` | 每一个分支段内的线性插值步数 |
 | `--show-node-markers` | flag | `False` | 是否在内部祖先节点处渲染菱形 marker |
 | `--no-mesh` | flag | `False` | 是否关闭连续垂直幕帘曲面 |
 | `--no-centerline` | flag | `False` | 是否关闭分支顶缘轮廓线 |
 | `--centerline-color` | `dark`, `trait`, 或 CSS color | `dark` | 顶缘轮廓线颜色模式 |
-| `--no-labels` | flag | `False` | 是否隐藏末端物种名称文字标签 |
+| `--no-labels` | flag | `False` | 是否隐藏 Tree Layout 轴上的末端物种名称文字标签（关闭后不显示物种名，亦不回退至数字坐标） |
+| `--no-x-axis` | flag | `False` | 是否隐藏 Tree Layout（X）轴线、边框线与网格（默认开启，numeric tick labels 隐藏） |
+| `--no-y-axis` | flag | `False` | 是否隐藏 Trait value（Y）轴线、刻度、数值标签与轴标题（默认开启） |
+| `--no-z-axis` | flag | `False` | 是否隐藏 Time before present（Z）轴线、刻度、数值标签与轴标题（默认开启） |
+| `--no-tip-hover` | flag | `False` | 是否关闭 terminal tip 末端分类单元的鼠标悬停交互提示与指示器（默认开启） |
+| `--no-internal-hover` | flag | `False` | 是否关闭 internal node 祖先内部节点的鼠标悬停交互提示与指示器（默认开启） |
 | `--title` | string | 默认标题 | 图像顶部标题文本 |
 
 可以通过 `python -m phylo3d_trait.cli plot --help` 查看所有参数的实时官方说明。
@@ -729,7 +748,7 @@ background = white
 camera preset = elife
 internal-node markers = off
 tip markers = off
-tip labels = on
+tip labels = on (Tree layout axis ticks)
 centerline = thin
 projection = orthographic
 baseline = trait_min

@@ -4,7 +4,12 @@ import pytest
 import plotly.graph_objects as go
 
 from phylo3d_trait.models import PlotData
-from phylo3d_trait.renderer import build_figure, build_plot_data, _generate_rescaled_ticks
+from phylo3d_trait.renderer import (
+    DEFAULT_TIP_LABEL_OFFSET_FRACTION,
+    build_figure,
+    build_plot_data,
+    _generate_rescaled_ticks,
+)
 from phylo3d_trait.tree import annotate_tree, compute_stable_node_id, parse_tree
 
 
@@ -288,8 +293,8 @@ def test_custom_baseline_raw_value_option():
     assert mesh.colorbar.ticktext[0] == "15.5"
 
 
-def test_tip_labels_use_scene_annotations_with_offsets():
-    """Verify tip labels are scene annotations with y > global_display_max and z <= 0."""
+def test_tip_labels_on_tree_layout_axis_with_rescaling():
+    """Verify tip labels are placed on Tree layout axis array ticks when display range is rescaled."""
     tree_str = "(A:10,B:10);"
     tree = parse_tree(tree_str)
     id_root = compute_stable_node_id(["A", "B"])
@@ -308,17 +313,28 @@ def test_tip_labels_use_scene_annotations_with_offsets():
 
     fig = build_figure(plot_data, mesh_opacity=1.0)
 
-    # Check annotations
+    # Annotations should be empty (no floating 3D text)
     annotations = fig.layout.scene.annotations
-    assert len(annotations) == 2
-    assert {ann.text for ann in annotations} == {"A", "B"}
+    assert len(annotations) == 0
 
-    for ann in annotations:
-        # y > global_display_max (13.0)
-        assert ann.y > 13.0
-        # z <= 0.0
-        assert ann.z <= 0.0
-        assert ann.showarrow is False
+    # Tip labels rendered via dedicated fixed Species Labels trace
+    xaxis = fig.layout.scene.xaxis
+    assert xaxis.showticklabels is False
+    assert len(xaxis.tickvals) == 0
+
+    species_trace = [t for t in fig.data if t.name == "Species Labels"][0]
+    assert species_trace.mode == "text"
+    assert list(species_trace.x) == [plot_data.nodes["A"].x, plot_data.nodes["B"].x]
+    assert list(species_trace.text) == ["A", "B"]
+    assert len(set(species_trace.z)) == 1
+    assert species_trace.z[0] <= plot_data.time_min
+    span = plot_data.time_max - plot_data.time_min
+    assert plot_data.time_min - species_trace.z[0] == pytest.approx(
+        DEFAULT_TIP_LABEL_OFFSET_FRACTION * span
+    )
+    assert all(y == pytest.approx(plot_data.baseline_y) for y in species_trace.y)
+    assert species_trace.hoverinfo == "skip"
+    assert species_trace.textfont.size == 12
 
     # Verify mesh opacity is 1.0
     mesh = [t for t in fig.data if t.name == "Branch Curtains"][0]

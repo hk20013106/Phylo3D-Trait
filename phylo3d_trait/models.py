@@ -152,6 +152,7 @@ class PlotData:
     raw_trait_min: float = 0.0
     raw_trait_max: float = 0.0
     trait_display_range: Optional[tuple[float, float]] = None
+    trait_display_offset: Optional[float] = None
     colorscale: str = "Turbo"
     title: str = "3D Phylogenetic Tree with Continuous Trait Evolution"
     baseline_y: Optional[float] = None
@@ -159,10 +160,15 @@ class PlotData:
 
     def __post_init__(self) -> None:
         if self.baseline_y is None:
-            self.baseline_y = self.trait_min
+            if self.trait_display_offset is not None:
+                self.baseline_y = 0.0
+            else:
+                self.baseline_y = self.trait_min
 
     def raw_to_display(self, raw_val: float) -> float:
         """Convert raw scientific trait value to display coordinate Y."""
+        if self.trait_display_offset is not None:
+            return raw_val - self.trait_display_offset
         if self.trait_display_range is None:
             return raw_val
         t_start, t_end = self.trait_display_range
@@ -172,6 +178,8 @@ class PlotData:
 
     def display_to_raw(self, display_val: float) -> float:
         """Convert display coordinate Y back to scientific raw trait value (inverse transform)."""
+        if self.trait_display_offset is not None:
+            return display_val + self.trait_display_offset
         if self.trait_display_range is None:
             return display_val
         t_start, t_end = self.trait_display_range

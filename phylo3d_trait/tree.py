@@ -188,6 +188,7 @@ def annotate_tree(
     colorscale: str = "Turbo",
     title: str = "3D Phylogenetic Tree with Continuous Trait Evolution",
     trait_display_range: Optional[tuple[float, float]] = None,
+    trait_display_offset: Optional[float] = None,
 ) -> PlotData:
     """Parse tree, map orthogonal 3D coordinates, and interpolate trait continuous geometry.
 
@@ -206,6 +207,7 @@ def annotate_tree(
         colorscale: Plotly continuous colorscale name.
         title: Plot title.
         trait_display_range: Optional (start, end) tuple for linear rescaling of trait values to Y display space.
+        trait_display_offset: Optional float offset subtracted from raw trait (display = raw - offset).
 
     Returns:
         PlotData container with annotated nodes and subdivided edge segments.
@@ -259,8 +261,13 @@ def annotate_tree(
     raw_trait_min = min(raw_traits)
     raw_trait_max = max(raw_traits)
 
-    # Define linear rescaling function
-    if trait_display_range is not None:
+    # Define linear rescaling or offset function
+    if trait_display_offset is not None:
+        offset_val = float(trait_display_offset)
+
+        def to_display_trait(raw: float) -> float:
+            return raw - offset_val
+    elif trait_display_range is not None:
         target_start = float(trait_display_range[0])
         target_end = float(trait_display_range[1])
 
@@ -428,6 +435,7 @@ def annotate_tree(
         raw_trait_min=raw_trait_min,
         raw_trait_max=raw_trait_max,
         trait_display_range=tuple(trait_display_range) if trait_display_range is not None else None,
+        trait_display_offset=float(trait_display_offset) if trait_display_offset is not None else None,
         colorscale=colorscale,
         title=title,
     )

@@ -8,13 +8,41 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
 from phylo3d_trait.io import load_trait_values
+from phylo3d_trait.four_layer_renderer import write_four_layer_html
 from phylo3d_trait.renderer import build_figure, build_plot_data
 from phylo3d_trait.template import generate_template_csv
 from phylo3d_trait.tree import parse_tree
+
+
+def _positive_finite_float(value: str) -> float:
+    """Argparse type: strictly positive finite float, rejected loudly otherwise."""
+    try:
+        parsed = float(value)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid number") from err
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is invalid: value must be a finite number > 0"
+        )
+    return parsed
+
+
+def _non_negative_finite_float(value: str) -> float:
+    """Argparse type: finite float >= 0, rejected loudly otherwise."""
+    try:
+        parsed = float(value)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid number") from err
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is invalid: value must be a finite number >= 0"
+        )
+    return parsed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plot_parser.add_argument(
         "--title", type=str, default=None, help="Plot title"
+    )
+    plot_parser.add_argument(
+        "--renderer", choices=["plotly", "four-layer"], default="plotly",
+        help=(
+            "Rendering backend (default: plotly). four-layer uses fixed four-layer "
+            "per-fragment depth peeling and supports opacity 0.5..1.0."
+        ),
     )
     plot_parser.add_argument(
         "--colorscale", type=str, default="Turbo", help="Plotly colorscale name (default: Turbo)"
@@ -74,7 +109,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Linearly remap raw trait values [min, max] to custom display range [START, END] (e.g. 13 5)"
     )
     plot_parser.add_argument(
+        "--trait-display-offset", type=float, default=None,
+        help="Display offset subtracted from raw trait (display_trait = raw_trait - OFFSET). Maps raw trait = OFFSET to display Y = 0."
+    )
+    plot_parser.add_argument(
         "--opacity", type=float, default=1.0, help="Opacity for curtain meshes (0.0 - 1.0, default: 1.0)"
+    )
+    plot_parser.add_argument(
+        "--trait-axis-scale", type=_positive_finite_float, default=1.0,
+        help=(
+            "Visual scale factor for the Trait (Y) axis aspect ratio only (default: 1.0). "
+            "Purely visual: scientific trait values, ticks, hover values, colors, "
+            "time-before-present and tree-layout geometry are unchanged. "
+            "e.g. 0.5 halves the Trait visual height."
+        )
+    )
+    plot_parser.add_argument(
+        "--tip-label-offset", type=_non_negative_finite_float, default=None,
+        help=(
+            "Outward offset of terminal species labels beyond the present plane, "
+            "as a fraction of the Time-before-present span (default: 0.03). "
+            "0.0 keeps labels exactly on the present plane."
+        )
     )
     plot_parser.add_argument(
         "--no-mesh", action="store_true", help="Disable continuous curtain mesh surfaces"
@@ -95,6 +151,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plot_parser.add_argument(
         "--show-node-markers", action="store_true", help="Render diamond markers at ancestral nodes (default: False)"
+    )
+    plot_parser.add_argument(
+        "--no-x-axis", action="store_true", help="Hide Tree Layout (X) axis line, grid, and frame lines"
+    )
+    plot_parser.add_argument(
+        "--no-y-axis", action="store_true", help="Hide Trait value (Y) axis line, ticks, labels, and title"
+    )
+    plot_parser.add_argument(
+        "--no-z-axis", action="store_true", help="Hide Time before present (Z) axis line, ticks, labels, and title"
+    )
+    plot_parser.add_argument(
+        "--no-tip-hover", action="store_true", help="Disable interactive hover tooltip and indicator on terminal tip taxa"
+    )
+    plot_parser.add_argument(
+        "--no-internal-hover", action="store_true", help="Disable interactive hover tooltip and indicator on internal ancestral nodes"
     )
 
     # 2. 'template-values' command
@@ -141,25 +212,65 @@ def run_plot(args: argparse.Namespace) -> int:
             baseline_y=args.baseline_y,
             trait_display_range=args.trait_display_range,
             baseline_raw_value=args.baseline_raw_value,
+            trait_display_offset=args.trait_display_offset,
         )
-        fig = build_figure(
-            plot_data=plot_data,
-            title=args.title,
-            branch_width=args.branch_width,
-            show_tip_labels=not args.no_labels,
-            show_mesh=not args.no_mesh,
-            mesh_opacity=args.opacity,
-            show_centerline=not args.no_centerline,
-            centerline_color=args.centerline_color,
-            baseline_y=args.baseline_y,
-            baseline_raw_value=args.baseline_raw_value,
-            show_node_markers=args.show_node_markers,
-            background=args.background,
-            camera_preset=args.camera_preset,
-            reverse_colorscale=args.reverse_colorscale,
-            curtain_color_mode=args.curtain_color_mode,
-        )
-        fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
+        if args.renderer == "four-layer":
+            if args.no_mesh:
+                raise ValueError(
+                    "--renderer four-layer requires curtain meshes; remove --no-mesh"
+                )
+            payload = write_four_layer_html(
+                plot_data=plot_data,
+                output_path=out_path,
+                opacity=args.opacity,
+                baseline_y=args.baseline_y,
+                reverse_colorscale=args.reverse_colorscale,
+                curtain_color_mode=args.curtain_color_mode,
+                trait_axis_scale=args.trait_axis_scale,
+                tip_label_offset=args.tip_label_offset,
+                show_tip_labels=not args.no_labels,
+                show_centerline=not args.no_centerline,
+                centerline_color=args.centerline_color,
+                background=args.background,
+                camera_preset=args.camera_preset,
+                show_x_axis=not args.no_x_axis,
+                show_y_axis=not args.no_y_axis,
+                show_z_axis=not args.no_z_axis,
+                show_tip_hover=not args.no_tip_hover,
+                show_internal_hover=not args.no_internal_hover,
+            )
+            print(
+                "Four-layer renderer: "
+                f"{payload['stats']['triangles']} triangles, "
+                "4 peel layers, omitted transmittance <= "
+                f"{payload['max_omitted_transmittance'] * 100:.2f}%"
+            )
+        else:
+            fig = build_figure(
+                plot_data=plot_data,
+                title=args.title,
+                branch_width=args.branch_width,
+                show_tip_labels=not args.no_labels,
+                show_mesh=not args.no_mesh,
+                mesh_opacity=args.opacity,
+                show_centerline=not args.no_centerline,
+                centerline_color=args.centerline_color,
+                baseline_y=args.baseline_y,
+                baseline_raw_value=args.baseline_raw_value,
+                show_node_markers=args.show_node_markers,
+                background=args.background,
+                camera_preset=args.camera_preset,
+                reverse_colorscale=args.reverse_colorscale,
+                curtain_color_mode=args.curtain_color_mode,
+                trait_axis_scale=args.trait_axis_scale,
+                tip_label_offset=args.tip_label_offset,
+                show_x_axis=not args.no_x_axis,
+                show_y_axis=not args.no_y_axis,
+                show_z_axis=not args.no_z_axis,
+                show_tip_hover=not args.no_tip_hover,
+                show_internal_hover=not args.no_internal_hover,
+            )
+            fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
         print(f"Successfully generated 3D phylogenetic visualization: {out_path}")
         return 0
     except Exception as e:

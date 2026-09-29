@@ -9,7 +9,8 @@ Visual representations:
 - Continuous vertical curtain / ribbon surfaces (Mesh3d) descending from each
   branch's trait height down to a common trait baseline plane.
 - Crisp branch top outlines (Scatter3d lines).
-- Text labels for terminal taxa without intrusive marker dots.
+- Fixed text labels for terminal taxa anchored just outside the present time
+  (Z = time_min) baseline plane, extending outward from each tip.
 - Pure white / transparent background with clean axis gridlines.
 - eLife-style camera preset with screen-vertical Y (Trait) and +Z foreground (MRCA).
 - Global trait normalization with optional independent color reversal and
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+import math
 import plotly.graph_objects as go
 
 from phylo3d_trait.models import EdgeSegment, PlotData
@@ -47,6 +49,12 @@ CAMERA_PRESETS: Dict[str, Dict[str, Any]] = {
     ),
 }
 
+# Generic default outward offset for terminal species labels, expressed as a
+# fraction of the Time-before-present span. Because Plotly normalizes scene
+# aspects per axis, a fraction of the span is scale-free: it adapts to any
+# phylogeny without hard-coded absolute distances.
+DEFAULT_TIP_LABEL_OFFSET_FRACTION = 0.03
+
 
 def build_plot_data(
     tree_input: Any,
@@ -57,6 +65,7 @@ def build_plot_data(
     baseline_y: Optional[float] = None,
     trait_display_range: Optional[Tuple[float, float]] = None,
     baseline_raw_value: Optional[float] = None,
+    trait_display_offset: Optional[float] = None,
 ) -> PlotData:
     """Convenience helper to parse tree, annotate traits, and construct PlotData.
 
@@ -87,7 +96,10 @@ def build_plot_data(
         colorscale=colorscale,
         title=title,
         trait_display_range=trait_display_range,
+        trait_display_offset=trait_display_offset,
     )
+    if trait_display_offset is not None:
+        data.trait_display_offset = trait_display_offset
     if baseline_y is not None:
         data.baseline_y = baseline_y
     if baseline_raw_value is not None:
@@ -223,6 +235,38 @@ def _generate_rescaled_ticks(
     Returns:
         Tuple of (tickvals, ticktext) for Plotly axis and colorbar.
     """
+    if plot_data.trait_display_offset is not None:
+        eff_baseline = baseline_y if baseline_y is not None else plot_data.baseline_y
+        if eff_baseline is None:
+            eff_baseline = 0.0
+
+        d_min = plot_data.trait_min
+        d_max = plot_data.trait_max
+
+        if include_baseline and eff_baseline is not None and eff_baseline < d_min:
+            raw_start = round(plot_data.display_to_raw(eff_baseline))
+        else:
+            raw_start = round(plot_data.display_to_raw(d_min))
+        raw_end = math.ceil(plot_data.display_to_raw(d_max))
+
+        span = raw_end - raw_start
+        if span <= 8:
+            step = 1.0
+        elif span <= 16:
+            step = 2.0
+        else:
+            step = max(1.0, round(span / float(num_ticks - 1)))
+
+        raw_vals = []
+        curr = float(raw_start)
+        while curr <= raw_end + 1e-5:
+            raw_vals.append(curr)
+            curr += step
+
+        tickvals = [round(plot_data.raw_to_display(r), 6) for r in raw_vals]
+        ticktext = [str(int(r)) if abs(r - round(r)) < 1e-6 else f"{r:.4f}".rstrip("0").rstrip(".") for r in raw_vals]
+        return tickvals, ticktext
+
     if plot_data.trait_display_range is None:
         return [], []
 
@@ -293,6 +337,13 @@ def build_figure(
     custom_camera: Optional[Dict[str, Any]] = None,
     reverse_colorscale: bool = False,
     curtain_color_mode: str = "height",
+    trait_axis_scale: float = 1.0,
+    tip_label_offset: Optional[float] = None,
+    show_x_axis: bool = True,
+    show_y_axis: bool = True,
+    show_z_axis: bool = True,
+    show_tip_hover: bool = True,
+    show_internal_hover: bool = True,
 ) -> go.Figure:
     """Construct an interactive Plotly 3D Figure in clean publication style with eLife-style camera.
 
@@ -300,7 +351,7 @@ def build_figure(
         plot_data: PlotData containing annotated nodes, edge segments, and scaling limits.
         title: Optional title override.
         branch_width: Line width for 3D branch top outline (default: 1.0).
-        show_tip_labels: Whether to display text labels for tip taxa (default: True).
+        show_tip_labels: Whether to display text labels for tip taxa on the present baseline plane, extending outward from each tip (default: True).
         aspect_ratio: Optional custom aspect ratio dictionary {'x': float, 'y': float, 'z': float}.
         show_mesh: Whether to render continuous vertical curtain meshes.
         mesh_opacity: Opacity for curtain meshes (0.0 to 1.0, default 1.0).
@@ -318,11 +369,51 @@ def build_figure(
         curtain_color_mode: 'height' (default) colors curtains by geometric
             Y height; 'branch' projects each local branch trait color vertically
             to the baseline.
+        trait_axis_scale: Visual aspect scale factor for the Trait (Y) dimension
+            only (default: 1.0). Purely visual: it multiplies the scene Trait
+            aspect ratio and changes nothing else (no trait values, ticks,
+            hover, color domain, time or tree-layout geometry). Example: 0.5
+            halves the Trait visual height. Must be finite and > 0.
+        tip_label_offset: Outward offset of terminal species labels beyond the
+            present plane (``time_min``), expressed as a fraction of the
+            Time-before-present span. ``None`` (default) uses
+            ``DEFAULT_TIP_LABEL_OFFSET_FRACTION`` (0.03). 0.0 keeps labels
+            exactly on the present plane. Must be finite and >= 0.
+        show_x_axis: Whether to show the Tree Layout (X) axis line and grid (default: True).
+        show_y_axis: Whether to show the Trait value (Y) axis, ticks, and title (default: True).
+        show_z_axis: Whether to show the Time before present (Z) axis, ticks, and title (default: True).
+        show_tip_hover: Whether to enable hover picking on terminal tip taxa (default: True).
+        show_internal_hover: Whether to enable hover picking on internal ancestral nodes (default: True).
 
     Returns:
         Plotly go.Figure configured for interactive 3D display.
     """
     plot_title = title if title is not None else plot_data.title
+
+    try:
+        trait_axis_scale = float(trait_axis_scale)
+    except (TypeError, ValueError) as err:
+        raise ValueError(
+            f"trait_axis_scale must be a finite positive number, got {trait_axis_scale!r}"
+        ) from err
+    if not math.isfinite(trait_axis_scale) or trait_axis_scale <= 0:
+        raise ValueError(
+            f"trait_axis_scale must be a finite positive number, got {trait_axis_scale!r}"
+        )
+
+    if tip_label_offset is not None:
+        try:
+            tip_label_offset = float(tip_label_offset)
+        except (TypeError, ValueError) as err:
+            raise ValueError(
+                "tip_label_offset must be a finite non-negative fraction of the "
+                f"Time-before-present span, got {tip_label_offset!r}"
+            ) from err
+        if not math.isfinite(tip_label_offset) or tip_label_offset < 0:
+            raise ValueError(
+                "tip_label_offset must be a finite non-negative fraction of the "
+                f"Time-before-present span, got {tip_label_offset!r}"
+            )
 
     eff_baseline_y = baseline_y if baseline_y is not None else plot_data.baseline_y
     if eff_baseline_y is None:
@@ -356,7 +447,7 @@ def build_figure(
     fig = go.Figure()
 
     # 1. Build continuous curtain mesh surfaces (Mesh3d)
-    is_transformed = plot_data.trait_display_range is not None
+    is_transformed = (plot_data.trait_display_range is not None) or (plot_data.trait_display_offset is not None)
     colorbar_title = "Trait Value"
     y_axis_title = "Trait value"
     y_tickvals, y_ticktext = _generate_rescaled_ticks(
@@ -422,7 +513,7 @@ def build_figure(
                         specular=0.08,
                         roughness=0.8,
                     ),
-                    hoverinfo="none",
+                    hoverinfo="skip",
                     name="Branch Curtains",
                     showscale=True,
                     colorbar=cb_dict,
@@ -494,110 +585,193 @@ def build_figure(
                 z=branch_z,  # Z is TIME
                 mode="lines",
                 line=line_cfg,
-                hoverinfo="none",
+                hoverinfo="skip",
                 name="Branch Centerlines",
                 showlegend=False,
             )
         )
 
-    # 3. Optional Internal Nodes trace (Default: False)
-    if show_node_markers:
-        internal_nodes = [n for n in plot_data.nodes.values() if not n.is_tip]
-        if internal_nodes:
-            if is_transformed:
-                customdata_internal = [
-                    [
-                        n.node_id,
-                        "Ancestral Node",
-                        n.raw_trait,
-                        n.display_trait,
-                        f"Descendants ({len(n.descendant_tips)} tips): {', '.join(n.descendant_tips[:3])}{'...' if len(n.descendant_tips) > 3 else ''}",
-                    ]
-                    for n in internal_nodes
+    # 3. Ancestral Internal Nodes trace (Visible when show_node_markers=True, hoverable via invisible markers when False)
+    internal_nodes = [n for n in plot_data.nodes.values() if not n.is_tip]
+    if internal_nodes and (show_internal_hover or show_node_markers):
+        if is_transformed:
+            customdata_internal = [
+                [
+                    n.node_id,
+                    "Ancestral Node",
+                    n.raw_trait,
+                    n.display_trait,
+                    f"Descendants ({len(n.descendant_tips)} tips): {', '.join(n.descendant_tips[:3])}{'...' if len(n.descendant_tips) > 3 else ''}",
                 ]
-                hovertemplate_internal = (
-                    "<b>Node: %{customdata[0]}</b><br>"
-                    "Type: %{customdata[1]}<br>"
-                    "Raw Trait: %{customdata[2]:.4f}<br>"
-                    "Display Trait (internal Y): %{customdata[3]:.4f}<br>"
-                    "Time before present (Z): %{z:.4f}<br>"
-                    "Tree Layout (X): %{x:.2f}<br>"
-                    "%{customdata[4]}<extra></extra>"
-                )
-            else:
-                customdata_internal = [
-                    [
-                        n.node_id,
-                        "Ancestral Node",
-                        f"Descendants ({len(n.descendant_tips)} tips): {', '.join(n.descendant_tips[:3])}{'...' if len(n.descendant_tips) > 3 else ''}",
-                    ]
-                    for n in internal_nodes
+                for n in internal_nodes
+            ]
+            hovertemplate_internal = (
+                "<b>Node: %{customdata[0]}</b><br>"
+                "Type: %{customdata[1]}<br>"
+                "Trait value (Y / Height): %{customdata[2]:.4f}<br>"
+                "Time before present (Z): %{z:.4f}<br>"
+                "Tree Layout (X): %{x:.2f}<br>"
+                "%{customdata[4]}<extra></extra>"
+            )
+        else:
+            customdata_internal = [
+                [
+                    n.node_id,
+                    "Ancestral Node",
+                    n.raw_trait,
+                    f"Descendants ({len(n.descendant_tips)} tips): {', '.join(n.descendant_tips[:3])}{'...' if len(n.descendant_tips) > 3 else ''}",
                 ]
-                hovertemplate_internal = (
-                    "<b>Node: %{customdata[0]}</b><br>"
-                    "Type: %{customdata[1]}<br>"
-                    "Trait value (Y / Height): %{y:.4f}<br>"
-                    "Time before present (Z): %{z:.4f}<br>"
-                    "Tree Layout (X): %{x:.2f}<br>"
-                    "%{customdata[2]}<extra></extra>"
-                )
-
-            fig.add_trace(
-                go.Scatter3d(
-                    x=[n.x for n in internal_nodes],
-                    y=[n.y for n in internal_nodes],  # Y is TRAIT
-                    z=[n.z for n in internal_nodes],  # Z is TIME
-                    mode="markers",
-                    marker=dict(
-                        size=internal_marker_size,
-                        color=[n.trait for n in internal_nodes],
-                        colorscale=plot_data.colorscale,
-                        cmin=trait_cmin,
-                        cmax=trait_cmax,
-                        reversescale=reverse_colorscale,
-                        symbol="diamond",
-                        opacity=0.95,
-                    ),
-                    customdata=customdata_internal,
-                    hovertemplate=hovertemplate_internal,
-                    name="Internal Nodes",
-                    showlegend=False,
-                )
+                for n in internal_nodes
+            ]
+            hovertemplate_internal = (
+                "<b>Node: %{customdata[0]}</b><br>"
+                "Type: %{customdata[1]}<br>"
+                "Trait value (Y / Height): %{customdata[2]:.4f}<br>"
+                "Time before present (Z): %{z:.4f}<br>"
+                "Tree Layout (X): %{x:.2f}<br>"
+                "%{customdata[3]}<extra></extra>"
             )
 
-    # 4. Build Terminal Tips 3D annotations (aligned on top-front reference line with dynamic offsets)
+        internal_marker_cfg = dict(
+            size=internal_marker_size if show_node_markers else 12,
+            color=[n.trait for n in internal_nodes],
+            colorscale=plot_data.colorscale,
+            cmin=trait_cmin,
+            cmax=trait_cmax,
+            reversescale=reverse_colorscale,
+            symbol="diamond",
+            opacity=0.95 if show_node_markers else 0.0,
+        )
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=[n.x for n in internal_nodes],
+                y=[n.y for n in internal_nodes],  # Y is TRAIT
+                z=[n.z for n in internal_nodes],  # Z is TIME
+                mode="markers",
+                marker=internal_marker_cfg,
+                customdata=customdata_internal,
+                hovertemplate=hovertemplate_internal if show_internal_hover else None,
+                hoverinfo=None if show_internal_hover else "skip",
+                name="Internal Nodes",
+                showlegend=False,
+            )
+        )
+
+    # 4. Terminal Nodes hover trace (Positions point indicator, XYZ spikes, and raw Hb buffer value at tree tips)
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
-    tip_annotations: List[Dict[str, Any]] = []
-    if tip_nodes and show_tip_labels:
-        display_span = max(plot_data.trait_max - plot_data.trait_min, 1.0)
-        time_span = max(plot_data.time_max - plot_data.time_min, 1.0)
-        label_y_offset = 0.02 * display_span
-        label_z_offset = 0.015 * time_span
-        label_y = plot_data.trait_max + label_y_offset
-        label_z = 0.0 - label_z_offset
-
-        for n in tip_nodes:
-            tip_annotations.append(
-                dict(
-                    x=n.x,
-                    y=label_y,
-                    z=label_z,
-                    text=n.label,
-                    showarrow=False,
-                    xanchor="center",
-                    yanchor="bottom",
-                    font=dict(size=11, color="#222222"),
-                )
+    if tip_nodes and show_tip_hover:
+        if is_transformed:
+            customdata_tip = [
+                [n.label, n.node_id, n.raw_trait, n.display_trait]
+                for n in tip_nodes
+            ]
+            hovertemplate_tip = (
+                "<b>Taxon: %{customdata[0]}</b><br>"
+                "Node ID: %{customdata[1]}<br>"
+                "Trait value (Y / Height): %{customdata[2]:.4f}<br>"
+                "Time before present (Z): %{z:.4f}<br>"
+                "Tree Layout (X): %{x:.2f}<extra></extra>"
+            )
+        else:
+            customdata_tip = [
+                [n.label, n.node_id, n.raw_trait]
+                for n in tip_nodes
+            ]
+            hovertemplate_tip = (
+                "<b>Taxon: %{customdata[0]}</b><br>"
+                "Node ID: %{customdata[1]}<br>"
+                "Trait value (Y / Height): %{customdata[2]:.4f}<br>"
+                "Time before present (Z): %{z:.4f}<br>"
+                "Tree Layout (X): %{x:.2f}<extra></extra>"
             )
 
-    # Calculate default balanced manual aspect ratio
+        fig.add_trace(
+            go.Scatter3d(
+                x=[n.x for n in tip_nodes],
+                y=[n.y for n in tip_nodes],  # Y is TRAIT
+                z=[n.z for n in tip_nodes],  # Z is TIME
+                mode="markers",
+                marker=dict(
+                    size=12,
+                    color=[n.trait for n in tip_nodes],
+                    colorscale=plot_data.colorscale,
+                    cmin=trait_cmin,
+                    cmax=trait_cmax,
+                    reversescale=reverse_colorscale,
+                    opacity=0.0,
+                ),
+                customdata=customdata_tip,
+                hovertemplate=hovertemplate_tip,
+                name="Terminal Taxa",
+                showlegend=False,
+            )
+        )
+
+    # 5. Fixed Terminal Species Labels trace (anchored strictly at present time
+    #    Z = time_min / 0.0, constant baseline Y).
+    #    Labels are pushed outward beyond the present plane (away from the tree
+    #    body) by a generic fraction of the Time-before-present span, so the tip
+    #    corresponds to the tree-facing end of the text rather than to its center.
+    #    textposition='middle right' keeps the text body extending outward from
+    #    that anchor. World coordinates are fixed: labels are never repositioned
+    #    by camera changes or browser events.
+    if tip_nodes and show_tip_labels:
+        sorted_tips = sorted(tip_nodes, key=lambda n: n.x)
+        time_span = abs(plot_data.time_max - plot_data.time_min)
+        offset_fraction = (
+            DEFAULT_TIP_LABEL_OFFSET_FRACTION
+            if tip_label_offset is None
+            else tip_label_offset
+        )
+        # The tree body extends from time_min (present) toward time_max (root),
+        # so the outward direction beyond the present plane is away from the root.
+        outward_sign = -1.0 if plot_data.time_max >= plot_data.time_min else 1.0
+        label_time = plot_data.time_min + outward_sign * offset_fraction * time_span
+        fig.add_trace(
+            go.Scatter3d(
+                x=[n.x for n in sorted_tips],
+                y=[eff_baseline_y for _ in sorted_tips],
+                z=[label_time for _ in sorted_tips],
+                mode="text",
+                text=[n.label for n in sorted_tips],
+                textposition="middle right",
+                textfont=dict(size=12, color="#222222"),
+                hoverinfo="skip",
+                name="Species Labels",
+                showlegend=False,
+            )
+        )
+
+    # 6. Configure Tree Layout axis (title removed, numeric ticks hidden, 3D spikes enabled)
+    xaxis_cfg: Dict[str, Any] = dict(
+        visible=show_x_axis,
+        title=dict(text=""),
+        showticklabels=False,
+        ticks="",
+        tickvals=[],
+        ticktext=[],
+        showbackground=False,
+        gridcolor="#e5e5e5",
+        zerolinecolor="#d0d0d0",
+        showspikes=True,
+        spikethickness=2,
+        spikesides=True,
+        spikecolor="#999999",
+    )
+
+    # Calculate default balanced manual aspect ratio.
+    # trait_axis_scale multiplies ONLY the Trait (Y) dimension of the existing
+    # aspect-ratio engine; Time (Z) and Tree Layout (X) visual aspects are
+    # untouched, and no scientific coordinate is transformed.
     if aspect_ratio is None:
         ratio_x = 1.4
         ratio_y = 1.0
         ratio_z = 1.2
         ratio_dict = dict(x=ratio_x, y=ratio_y, z=ratio_z)
     else:
-        ratio_dict = aspect_ratio
+        ratio_dict = dict(aspect_ratio)
+    ratio_dict["y"] = float(ratio_dict.get("y", 1.0)) * trait_axis_scale
 
     # Background colors
     is_transparent = background.lower() == "transparent"
@@ -611,10 +785,15 @@ def build_figure(
         camera_cfg = CAMERA_PRESETS.get(camera_preset.lower(), CAMERA_PRESETS["elife"])
 
     yaxis_cfg = dict(
+        visible=show_y_axis,
         title=dict(text=y_axis_title, font=dict(size=13, color="#333333")),
         showbackground=False,
         gridcolor="#e5e5e5",
         zerolinecolor="#d0d0d0",
+        showspikes=True,
+        spikethickness=2,
+        spikesides=True,
+        spikecolor="#999999",
     )
     if is_transformed and y_tickvals:
         yaxis_cfg["tickmode"] = "array"
@@ -632,23 +811,23 @@ def build_figure(
         paper_bgcolor=paper_bg,
         plot_bgcolor=plot_bg,
         scene=dict(
-            xaxis=dict(
-                title=dict(text="Tree layout", font=dict(size=13, color="#333333")),
-                showbackground=False,
-                gridcolor="#e5e5e5",
-                zerolinecolor="#d0d0d0",
-            ),
+            xaxis=xaxis_cfg,
             yaxis=yaxis_cfg,
             zaxis=dict(
+                visible=show_z_axis,
                 title=dict(text="Time before present", font=dict(size=13, color="#333333")),
                 showbackground=False,
                 gridcolor="#e5e5e5",
                 zerolinecolor="#d0d0d0",
+                showspikes=True,
+                spikethickness=2,
+                spikesides=True,
+                spikecolor="#999999",
             ),
             aspectmode="manual",
             aspectratio=ratio_dict,
             camera=camera_cfg,
-            annotations=tip_annotations,
+            annotations=[],
         ),
         margin=dict(l=20, r=20, t=50, b=20),
     )
