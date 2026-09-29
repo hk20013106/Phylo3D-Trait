@@ -12,9 +12,10 @@ Coordinate system:
 from phylo3d_trait.models import AnnotatedNode, EdgeSegment, PlotData
 from phylo3d_trait.tree import annotate_tree, compute_stable_node_id, parse_tree
 from phylo3d_trait.renderer import build_figure, build_plot_data
+from phylo3d_trait.four_layer_renderer import build_four_layer_html, write_four_layer_html
 from phylo3d_trait.template import generate_template_csv
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "AnnotatedNode",
@@ -25,5 +26,7 @@ __all__ = [
     "parse_tree",
     "build_figure",
     "build_plot_data",
+    "build_four_layer_html",
+    "write_four_layer_html",
     "generate_template_csv",
 ]

@@ -613,6 +613,52 @@ window.addEventListener("resize",render);render();
 </script></body></html>"""
 
 
+def build_four_layer_html(
+    plot_data: PlotData,
+    *,
+    opacity: float = 0.9,
+    baseline_y: Optional[float] = None,
+    reverse_colorscale: bool = False,
+    curtain_color_mode: str = "height",
+    trait_axis_scale: float = 1.0,
+    tip_label_offset: Optional[float] = None,
+    show_tip_labels: bool = True,
+    show_centerline: bool = True,
+    centerline_color: str = "dark",
+    background: str = "white",
+    camera_preset: str = "elife",
+    show_x_axis: bool = True,
+    show_y_axis: bool = True,
+    show_z_axis: bool = True,
+    show_tip_hover: bool = True,
+    show_internal_hover: bool = True,
+) -> str:
+    """Build an interactive four-layer WebGL2 HTML visualization string."""
+    payload = _build_payload(
+        plot_data,
+        opacity=opacity,
+        baseline_y=baseline_y,
+        reverse_colorscale=reverse_colorscale,
+        curtain_color_mode=curtain_color_mode,
+        trait_axis_scale=trait_axis_scale,
+        tip_label_offset=tip_label_offset,
+        show_tip_labels=show_tip_labels,
+        show_centerline=show_centerline,
+        centerline_color=centerline_color,
+        background=background,
+        camera_preset=camera_preset,
+        show_x_axis=show_x_axis,
+        show_y_axis=show_y_axis,
+        show_z_axis=show_z_axis,
+        show_tip_hover=show_tip_hover,
+        show_internal_hover=show_internal_hover,
+    )
+    return _HTML.replace(
+        "__PHYLO3D_PAYLOAD__",
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+    )
+
+
 def write_four_layer_html(
     plot_data: PlotData,
     output_path: Union[Path, str],
