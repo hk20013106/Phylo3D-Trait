@@ -1,7 +1,8 @@
 # Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/hk20013106/Phylo3D-Trait)](https://github.com/hk20013106/Phylo3D-Trait/releases/latest)
 [![CI](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml/badge.svg)](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml)
 [![WebGL2 OIT](https://img.shields.io/badge/WebGL2-Order--Independent%20Transparency-purple.svg)]()
 
