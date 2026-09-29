@@ -15,7 +15,7 @@ from phylo3d_trait.renderer import build_figure, build_plot_data
 from phylo3d_trait.four_layer_renderer import build_four_layer_html, write_four_layer_html
 from phylo3d_trait.template import generate_template_csv
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 __all__ = [
     "AnnotatedNode",
