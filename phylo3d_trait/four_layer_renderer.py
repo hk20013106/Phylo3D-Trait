@@ -266,7 +266,7 @@ _HTML = r"""<!doctype html>
 <style>
 html,body,#wrap{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,sans-serif}
 #wrap{position:relative;background:white}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-#labels{position:absolute;inset:0;pointer-events:none}.tip{position:absolute;font-size:12px;color:#222;white-space:nowrap;transform:translate(3px,-50%)}
+#labels{position:absolute;inset:0;pointer-events:none}.tip{position:absolute;font-size:12px;color:#222;white-space:nowrap}
 #title{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:18px;color:#222}
 #badge{position:absolute;left:10px;bottom:10px;background:rgba(255,255,255,.86);border:1px solid #ddd;padding:6px 8px;font:12px monospace}
 #cb{position:absolute;right:16px;top:18%;height:64%;width:62px}#grad{position:absolute;right:0;top:18px;width:18px;height:calc(100% - 36px);border:1px solid #aaa}
@@ -318,7 +318,7 @@ function mvp(){const d=4,cp=Math.cos(pitch),eye=[d*cp*Math.sin(yaw),d*Math.sin(p
 canvas.addEventListener("pointerdown",e=>{drag=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId)});canvas.addEventListener("pointerup",()=>drag=false);canvas.addEventListener("pointermove",e=>{if(!drag)return;yaw-=(e.clientX-lx)*.008;pitch+=(e.clientY-ly)*.008;pitch=Math.max(-1.45,Math.min(1.45,pitch));lx=e.clientX;ly=e.clientY;render()});canvas.addEventListener("wheel",e=>{e.preventDefault();zoom*=Math.exp(e.deltaY*.001);zoom=Math.max(.5,Math.min(8,zoom));render()},{passive:false});
 
 const lr=document.getElementById("labels"),le=DATA.labels.map(x=>{const d=document.createElement("div");d.className="tip";d.textContent=x.text;lr.appendChild(d);return d});
-function labels(M){DATA.labels.forEach((x,i)=>{const p=project(M,x.position),e=le[i];e.style.display=(p[2]<-1||p[2]>1)?"none":"block";e.style.left=((p[0]*.5+.5)*canvas.clientWidth)+"px";e.style.top=((-p[1]*.5+.5)*canvas.clientHeight)+"px"})}
+function labels(M){const eyeX=Math.cos(pitch)*Math.sin(yaw);const tx=eyeX<0?"translate(calc(-100% - 3px),-50%)":"translate(3px,-50%)";DATA.labels.forEach((x,i)=>{const p=project(M,x.position),e=le[i];e.style.display=(p[2]<-1||p[2]>1)?"none":"block";e.style.left=((p[0]*.5+.5)*canvas.clientWidth)+"px";e.style.top=((-p[1]*.5+.5)*canvas.clientHeight)+"px";e.style.transform=tx})}
 
 function render(){resize();const M=mvp();gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.useProgram(peel);gl.bindVertexArray(meshV);gl.uniformMatrix4fv(gl.getUniformLocation(peel,"uMVP"),false,M);gl.uniform2f(gl.getUniformLocation(peel,"uResolution"),canvas.width,canvas.height);gl.uniform1f(gl.getUniformLocation(peel,"uOpacity"),DATA.opacity);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,null);
 for(let pass=0;pass<4;pass++){gl.bindFramebuffer(gl.FRAMEBUFFER,targets[pass].fb);gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.uniform1i(gl.getUniformLocation(peel,"uHasPrev"),pass>0?1:0);if(pass>0){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,targets[pass-1].depth);gl.uniform1i(gl.getUniformLocation(peel,"uPrevDepth"),0)}if(nidx)gl.drawElements(gl.TRIANGLES,nidx,gl.UNSIGNED_INT,0)}
