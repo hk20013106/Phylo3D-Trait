@@ -1,0 +1,68 @@
+name: Bootstrap PyPI v0.3.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bootstrap-pypi-v0.3.1.yml"
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch trusted PyPI workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          before=$(gh run list --workflow publish-pypi.yml --event workflow_dispatch --branch main --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+          gh workflow run publish-pypi.yml --ref main
+          for i in $(seq 1 30); do
+            sleep 2
+            run_id=$(gh run list --workflow publish-pypi.yml --event workflow_dispatch --branch main --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+            if [ "$run_id" != "0" ] && [ "$run_id" != "$before" ]; then
+              echo "Dispatched publish workflow run $run_id"
+              echo "RUN_ID=$run_id" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          echo "Could not identify dispatched publish workflow run" >&2
+          exit 1
+
+      - name: Wait for PyPI publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh run watch "$RUN_ID" --exit-status
+
+      - name: Create GitHub release v0.3.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view v0.3.1 >/dev/null 2>&1; then
+            echo "v0.3.1 release already exists"
+            exit 0
+          fi
+          cat > /tmp/release-notes.md <<'EOF'
+          ## Phylo3D-Trait v0.3.1
+
+          First PyPI distribution release.
+
+          ### Distribution
+          - Published as `phylo3d-trait` through PyPI Trusted Publishing (GitHub OIDC).
+          - Source distribution and universal Python wheel are built and validated in CI.
+          - No long-lived PyPI API token is stored in the repository.
+
+          ### Project infrastructure
+          - Improved package and citation metadata.
+          - Added structured contribution templates and CI packaging checks.
+          - User/AI documentation synchronized with the current Four-Layer WebGL2 renderer.
+
+          Scientific rendering behavior is unchanged from v0.3.0.
+          EOF
+          gh release create v0.3.1 --target main --title "Phylo3D-Trait v0.3.1" --notes-file /tmp/release-notes.md
