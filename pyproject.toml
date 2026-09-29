@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "phylo3d-trait"
-version = "0.3.0"
+version = "0.3.1"
 description = "Interactive 3D phylogenetic visualization of continuous trait evolution and supplied ancestral-state estimates"
 readme = "README.md"
 requires-python = ">=3.10"
