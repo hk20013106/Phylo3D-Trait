@@ -1,29 +1,36 @@
 # AGENTS.md
 
-Operating guidelines and project rules for AI Agents working in `phylo3d-trait`.
+Operating guidelines and project rules for AI agents working in `phylo3d-trait`.
 
----
-
-## 1. Mandatory Documentation Preflight
-Before running, testing, or modifying Phylo3D-Trait, completely read:
+## 1. Mandatory documentation preflight
+Before running, testing, or modifying Phylo3D-Trait, read:
 - `README.md`
 - `docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`
 
-## 2. CLI-First Principle (New Data $\neq$ Code Changes)
-For any new tree or trait dataset, run via CLI commands (`python -m phylo3d_trait.cli`). Do not modify package source code for new datasets.
+For interface details, the current CLI and source code are authoritative. If documentation disagrees with `python -m phylo3d_trait.cli --help` or the implementation, report the discrepancy instead of guessing.
 
-## 3. Deterministic Clade IDs
-Internal ancestral node IDs must be generated via `template-values` (derived from sorted descendant tip hashes). Never guess or hand-code internal node IDs.
+## 2. CLI-first principle
+For a new tree or trait dataset, use the existing CLI. New data do not imply code changes.
 
-## 4. Time & Branch Length Verification
-Before interpreting the $Z$ axis as "Time before present (Ma)", verify that the tree branch lengths strictly represent evolutionary time.
+## 3. Deterministic clade IDs
+Generate internal ancestral node IDs with `template-values`. Never guess or hand-code internal-node IDs.
 
-## 5. No Built-in ASR
-Phylo3D-Trait does not reconstruct ancestral states. All tip and ancestral node trait values must be supplied explicitly.
+## 4. Time and branch-length verification
+Do not interpret the Z axis as time before present unless branch lengths represent evolutionary time and the tree is appropriate for that interpretation.
 
-## 6. Standard 6-Step Execution Flow
-$$\text{inspect input} \to \text{template-values} \to \text{map traits} \to \text{validate} \to \text{plot} \to \text{verify HTML}$$
+## 5. No built-in ancestral-state reconstruction
+Phylo3D-Trait visualizes supplied node values. It does not infer ancestral states. All required tip, internal-node, and root values must be supplied explicitly.
 
-## 7. Code Modification Invariant
-If code modification is ever required, strictly follow:
-$$\text{Understand first} \to \text{Search before coding} \to \text{Reuse} > \text{Extend} > \text{Refactor} > \text{Create}$$
+## 6. Renderer choice
+- `--renderer four-layer`: recommended for publication-oriented output and transparent curtain meshes; WebGL2 depth peeling, opacity 0.5–1.0.
+- `--renderer plotly`: legacy/general exploration backend.
+Do not create another renderer unless the existing architecture cannot support a documented requirement.
+
+## 7. Standard execution flow
+`inspect input -> verify branch-length meaning -> template-values -> map traits -> validate -> plot -> verify HTML`
+
+## 8. Code modification invariant
+Before changing source code:
+`Understand -> Search -> Reuse > Extend > Refactor > Create -> Test -> Re-search for duplicate logic`
+
+Do not hard-code taxa, datasets, node numbers, or project-specific scientific values into package code.

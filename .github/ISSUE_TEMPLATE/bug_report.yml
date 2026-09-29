@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible Phylo3D-Trait problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for reporting a reproducible problem. Please use minimal non-sensitive inputs when possible."
+  - type: input
+    id: version
+    attributes:
+      label: Phylo3D-Trait version or commit
+      placeholder: "0.3.0 or commit SHA"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Python, OS, and browser/version if relevant
+      placeholder: "Python 3.12; Ubuntu 24.04; Chrome 153"
+    validations:
+      required: true
+  - type: dropdown
+    id: renderer
+    attributes:
+      label: Renderer
+      options:
+        - four-layer
+        - plotly
+        - not renderer-related
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command or API call
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: minimal
+    attributes:
+      label: Minimal reproducible input
+      description: Attach or paste the smallest tree/value files that reproduce the problem. Remove sensitive/unpublished data.
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Screenshots, generated HTML, traceback, or other relevant evidence.
