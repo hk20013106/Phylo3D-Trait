@@ -297,57 +297,56 @@ def _build_payload(
     bz_min = float(plot_data.time_min)
     bz_max = float(plot_data.time_max)
 
-    x_span = max(bx_max - bx_min, 1.0)
-    tick_len_x = 0.03 * x_span
-    title_offset_x = 0.12 * x_span
+    # The four-layer renderer intentionally draws only the two scientific axes:
+    # Y = Trait value and Z = Time before present. Their screen-facing corner is
+    # selected dynamically in JavaScript from the current camera orientation.
+    # X remains part of the scientific coordinate system and hover metadata but
+    # has no visible axis/ticks in this backend.
+    n_xmin = convert(bx_min, by_min, bz_min)[0]
+    n_xmax = convert(bx_max, by_min, bz_min)[0]
+    n_ymin = convert(bx_min, by_min, bz_min)[1]
+    n_ymax = convert(bx_min, by_max, bz_min)[1]
+    n_zmin = convert(bx_min, by_min, bz_min)[2]
+    n_zmax = convert(bx_min, by_min, bz_max)[2]
 
     axes = {
         "show_x": bool(show_x_axis),
         "show_y": bool(show_y_axis),
         "show_z": bool(show_z_axis),
-        "frame_lines": [
-            [convert(bx_min, by_min, bz_min), convert(bx_max, by_min, bz_min)],
-            [convert(bx_max, by_min, bz_min), convert(bx_max, by_min, bz_max)],
-            [convert(bx_max, by_min, bz_max), convert(bx_min, by_min, bz_max)],
-            [convert(bx_min, by_min, bz_max), convert(bx_min, by_min, bz_min)],
-            [convert(bx_min, by_min, bz_max), convert(bx_min, by_max, bz_max)],
-        ],
+        "bounds": {
+            "x_min": n_xmin,
+            "x_max": n_xmax,
+            "y_min": n_ymin,
+            "y_max": n_ymax,
+            "z_min": n_zmin,
+            "z_max": n_zmax,
+        },
         "y_axis": {
             "visible": bool(show_y_axis),
-            "title": {
-                "text": "Trait value",
-                "pos": convert(bx_min - title_offset_x, (by_min + by_max) / 2.0, bz_max),
-                "axis_pos": convert(bx_min, (by_min + by_max) / 2.0, bz_max),
-            },
+            "title": "Trait value",
             "ticks": [
                 {
                     "val": float(v),
                     "text": str(t),
-                    "pos": convert(bx_min, v, bz_max),
-                    "tick_end": convert(bx_min - tick_len_x, v, bz_max),
+                    "coord": convert(bx_min, v, bz_min)[1],
                 }
                 for v, t in zip(y_tickvals, y_ticktext)
             ],
         },
         "z_axis": {
             "visible": bool(show_z_axis),
-            "title": {
-                "text": "Time before present",
-                "pos": convert(bx_min - title_offset_x, by_min, (bz_min + bz_max) / 2.0),
-                "axis_pos": convert(bx_min, by_min, (bz_min + bz_max) / 2.0),
-            },
+            "title": "Time before present",
             "ticks": [
                 {
                     "val": float(v),
                     "text": str(t),
-                    "pos": convert(bx_min, by_min, v),
-                    "tick_end": convert(bx_min - tick_len_x, by_min, v),
+                    "coord": convert(bx_min, by_min, v)[2],
                 }
                 for v, t in zip(z_tickvals, z_ticktext)
             ],
         },
         "x_axis": {
-            "visible": bool(show_x_axis),
+            "visible": False,
             "show_numeric_labels": False,
         },
     }
@@ -410,9 +409,12 @@ html,body,#wrap{margin:0;width:100%;height:100%;overflow:hidden;font-family:Aria
 #badge{position:absolute;left:10px;bottom:10px;background:rgba(255,255,255,.86);border:1px solid #ddd;padding:6px 8px;font:12px monospace}
 #cb{position:absolute;right:16px;top:18%;height:64%;width:62px}#grad{position:absolute;right:0;top:18px;width:18px;height:calc(100% - 36px);border:1px solid #aaa}
 #mx,#mn{position:absolute;right:24px;font-size:11px;color:#333}#mx{top:8px}#mn{bottom:8px}
+#toolbar{position:absolute;right:14px;top:12px;display:flex;gap:4px;z-index:120}
+#toolbar button{font:12px Arial,sans-serif;padding:5px 8px;border:1px solid #c9c9c9;border-radius:4px;background:rgba(255,255,255,.94);color:#333;cursor:pointer}
+#toolbar button:hover{background:#f2f2f2}
 #err{display:none;position:absolute;inset:20px;background:#fff4f4;border:1px solid #b00;padding:16px;color:#900;white-space:pre-wrap}
 </style></head>
-<body><div id="wrap"><canvas id="gl"></canvas><svg id="axes"></svg><div id="labels"></div><div id="tooltip"></div><div id="title"></div>
+<body><div id="wrap"><canvas id="gl"></canvas><svg id="axes"></svg><div id="labels"></div><div id="tooltip"></div><div id="title"></div><div id="toolbar"><button id="reset-view" type="button">Reset</button><button id="download-png" type="button">PNG</button><button id="download-svg" type="button">SVG</button></div>
 <div id="cb"><div id="grad"></div><div id="mx"></div><div id="mn"></div></div>
 <div id="badge"></div><div id="err"></div></div>
 <script>
@@ -452,63 +454,58 @@ function ortho(l,r,b,t,n,f){const o=new Float32Array(16);o[0]=2/(r-l);o[5]=2/(t-
 function mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s}return o}
 function project(m,p){const x=p[0],y=p[1],z=p[2],w=m[3]*x+m[7]*y+m[11]*z+m[15];return[(m[0]*x+m[4]*y+m[8]*z+m[12])/w,(m[1]*x+m[5]*y+m[9]*z+m[13])/w,(m[2]*x+m[6]*y+m[10]*z+m[14])/w]}
 
-const iv=norm(DATA.camera_eye);let yaw=Math.atan2(iv[0],iv[2]),pitch=Math.asin(Math.max(-.98,Math.min(.98,iv[1]))),zoom=2.2,drag=false,lx=0,ly=0;
+const iv=norm(DATA.camera_eye),initialYaw=Math.atan2(iv[0],iv[2]),initialPitch=Math.asin(Math.max(-.98,Math.min(.98,iv[1]))),initialZoom=2.2;let yaw=initialYaw,pitch=initialPitch,zoom=initialZoom,drag=false,lx=0,ly=0;
 function mvp(){const d=4,cp=Math.cos(pitch),eye=[d*cp*Math.sin(yaw),d*Math.sin(pitch),d*cp*Math.cos(yaw)],a=canvas.width/canvas.height;return mul(ortho(-zoom*a,zoom*a,-zoom,zoom,-20,20),look(eye))}
 
 const axesSvg=document.getElementById("axes");
-const svgFrameLines=(DATA.axes&&DATA.axes.frame_lines?DATA.axes.frame_lines:[]).map(()=>{const l=document.createElementNS("http://www.w3.org/2000/svg","line");l.setAttribute("class","axis-line");axesSvg.appendChild(l);return l});
+const svgYAxis=document.createElementNS("http://www.w3.org/2000/svg","line");svgYAxis.setAttribute("class","axis-line");axesSvg.appendChild(svgYAxis);
+const svgZAxis=document.createElementNS("http://www.w3.org/2000/svg","line");svgZAxis.setAttribute("class","axis-line");axesSvg.appendChild(svgZAxis);
 const svgYTicks=(DATA.axes&&DATA.axes.y_axis?DATA.axes.y_axis.ticks:[]).map(t=>{const line=document.createElementNS("http://www.w3.org/2000/svg","line");line.setAttribute("class","axis-tick");axesSvg.appendChild(line);const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("class","axis-label");text.textContent=t.text;axesSvg.appendChild(text);return{line,text,data:t}});
-const svgYTitle=document.createElementNS("http://www.w3.org/2000/svg","text");svgYTitle.setAttribute("class","axis-title");if(DATA.axes&&DATA.axes.y_axis&&DATA.axes.y_axis.title)svgYTitle.textContent=DATA.axes.y_axis.title.text;axesSvg.appendChild(svgYTitle);
+const svgYTitle=document.createElementNS("http://www.w3.org/2000/svg","text");svgYTitle.setAttribute("class","axis-title");if(DATA.axes&&DATA.axes.y_axis)svgYTitle.textContent=DATA.axes.y_axis.title;axesSvg.appendChild(svgYTitle);
 const svgZTicks=(DATA.axes&&DATA.axes.z_axis?DATA.axes.z_axis.ticks:[]).map(t=>{const line=document.createElementNS("http://www.w3.org/2000/svg","line");line.setAttribute("class","axis-tick");axesSvg.appendChild(line);const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("class","axis-label");text.textContent=t.text;axesSvg.appendChild(text);return{line,text,data:t}});
-const svgZTitle=document.createElementNS("http://www.w3.org/2000/svg","text");svgZTitle.setAttribute("class","axis-title");if(DATA.axes&&DATA.axes.z_axis&&DATA.axes.z_axis.title)svgZTitle.textContent=DATA.axes.z_axis.title.text;axesSvg.appendChild(svgZTitle);
+const svgZTitle=document.createElementNS("http://www.w3.org/2000/svg","text");svgZTitle.setAttribute("class","axis-title");if(DATA.axes&&DATA.axes.z_axis)svgZTitle.textContent=DATA.axes.z_axis.title;axesSvg.appendChild(svgZTitle);
 const hoverGuide=document.createElementNS("http://www.w3.org/2000/svg","line");hoverGuide.setAttribute("id","hover-guide");hoverGuide.setAttribute("stroke","#e65100");hoverGuide.setAttribute("stroke-width","1.5");hoverGuide.setAttribute("stroke-dasharray","3,3");hoverGuide.style.display="none";axesSvg.appendChild(hoverGuide);
 const hoverMarker=document.createElementNS("http://www.w3.org/2000/svg","circle");hoverMarker.setAttribute("id","hover-marker");hoverMarker.setAttribute("r","5");hoverMarker.setAttribute("fill","#ff7f0e");hoverMarker.setAttribute("stroke","#ffffff");hoverMarker.setAttribute("stroke-width","1.5");hoverMarker.style.display="none";axesSvg.appendChild(hoverMarker);
 
 function toScreen(p){return[(p[0]*.5+.5)*canvas.clientWidth,(-p[1]*.5+.5)*canvas.clientHeight,p[2]]}
+function setSvgLine(el,a,b){el.setAttribute("x1",a[0]);el.setAttribute("y1",a[1]);el.setAttribute("x2",b[0]);el.setAttribute("y2",b[1])}
+function frontAxisCorner(){
+const b=DATA.axes.bounds,cp=Math.cos(pitch),eyeX=cp*Math.sin(yaw),eyeZ=cp*Math.cos(yaw);
+return{x:eyeX>=0?b.x_max:b.x_min,z:eyeZ>=0?b.z_max:b.z_min}
+}
+function outward2D(M,corner){
+const sc=toScreen(project(M,[0,0,0])),sa=toScreen(project(M,[corner.x,DATA.axes.bounds.y_min,corner.z]));
+let dx=sa[0]-sc[0],dy=sa[1]-sc[1],n=Math.hypot(dx,dy);
+if(n<1e-6){dx=1;dy=0;n=1}
+return[dx/n,dy/n]
+}
+function placeAxisText(el,base,out,offset){
+el.setAttribute("x",base[0]+out[0]*offset);el.setAttribute("y",base[1]+out[1]*offset);
+el.setAttribute("text-anchor",out[0]<-.2?"end":out[0]>.2?"start":"middle");
+el.setAttribute("dominant-baseline",out[1]<-.2?"auto":out[1]>.2?"hanging":"central")
+}
 function updateAxes(M){
 if(!DATA.axes)return;
-const showX = DATA.axes.show_x !== false;
-const showY = DATA.axes.show_y !== false;
-const showZ = DATA.axes.show_z !== false;
-DATA.axes.frame_lines.forEach((pts,i)=>{
-const l=svgFrameLines[i];
-let visible = true;
-if(i===0||i===2){if(!showX)visible=false;}
-else if(i===1||i===3){if(!showZ)visible=false;}
-else if(i===4){if(!showY)visible=false;}
-if(!visible){l.style.display="none";return;}
-const p0=project(M,pts[0]),p1=project(M,pts[1]);
-if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){l.style.display="none"}
-else{l.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);l.setAttribute("x1",s0[0]);l.setAttribute("y1",s0[1]);l.setAttribute("x2",s1[0]);l.setAttribute("y2",s1[1])}
-});
+const b=DATA.axes.bounds,corner=frontAxisCorner(),out=outward2D(M,corner);
+const showY=DATA.axes.show_y!==false,showZ=DATA.axes.show_z!==false;
+const y0=toScreen(project(M,[corner.x,b.y_min,corner.z])),y1=toScreen(project(M,[corner.x,b.y_max,corner.z]));
+if(showY){svgYAxis.style.display="block";setSvgLine(svgYAxis,y0,y1)}else svgYAxis.style.display="none";
+const z0=toScreen(project(M,[corner.x,b.y_min,b.z_min])),z1=toScreen(project(M,[corner.x,b.y_min,b.z_max]));
+if(showZ){svgZAxis.style.display="block";setSvgLine(svgZAxis,z0,z1)}else svgZAxis.style.display="none";
+
 svgYTicks.forEach(item=>{
-if(!showY){item.line.style.display="none";item.text.style.display="none";return;}
-const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);
-if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}
-else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}
+if(!showY){item.line.style.display="none";item.text.style.display="none";return}
+const s=toScreen(project(M,[corner.x,item.data.coord,corner.z])),e=[s[0]+out[0]*7,s[1]+out[1]*7];
+item.line.style.display="block";item.text.style.display="block";setSvgLine(item.line,s,e);placeAxisText(item.text,e,out,5)
 });
-if(DATA.axes.y_axis&&DATA.axes.y_axis.title){
-if(!showY){svgYTitle.style.display="none";}
-else{
-const ytp0=project(M,DATA.axes.y_axis.title.axis_pos),ytp1=project(M,DATA.axes.y_axis.title.pos);
-if(ytp1[2]<-1||ytp1[2]>1){svgYTitle.style.display="none"}
-else{svgYTitle.style.display="block";const s0=toScreen(ytp0),s1=toScreen(ytp1);svgYTitle.setAttribute("x",s1[0]);svgYTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgYTitle.setAttribute("text-anchor","end");svgYTitle.setAttribute("dx","-8")}else{svgYTitle.setAttribute("text-anchor","start");svgYTitle.setAttribute("dx","8")}svgYTitle.setAttribute("dominant-baseline","central")}
-}
-}
+if(showY){svgYTitle.style.display="block";const mid=toScreen(project(M,[corner.x,(b.y_min+b.y_max)/2,corner.z]));placeAxisText(svgYTitle,mid,out,48)}else svgYTitle.style.display="none";
+
 svgZTicks.forEach(item=>{
-if(!showZ){item.line.style.display="none";item.text.style.display="none";return;}
-const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);
-if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}
-else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}
+if(!showZ){item.line.style.display="none";item.text.style.display="none";return}
+const s=toScreen(project(M,[corner.x,b.y_min,item.data.coord])),e=[s[0]+out[0]*7,s[1]+out[1]*7];
+item.line.style.display="block";item.text.style.display="block";setSvgLine(item.line,s,e);placeAxisText(item.text,e,out,5)
 });
-if(DATA.axes.z_axis&&DATA.axes.z_axis.title){
-if(!showZ){svgZTitle.style.display="none";}
-else{
-const ztp0=project(M,DATA.axes.z_axis.title.axis_pos),ztp1=project(M,DATA.axes.z_axis.title.pos);
-if(ztp1[2]<-1||ztp1[2]>1){svgZTitle.style.display="none"}
-else{svgZTitle.style.display="block";const s0=toScreen(ztp0),s1=toScreen(ztp1);svgZTitle.setAttribute("x",s1[0]);svgZTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgZTitle.setAttribute("text-anchor","end");svgZTitle.setAttribute("dx","-8")}else{svgZTitle.setAttribute("text-anchor","start");svgZTitle.setAttribute("dx","8")}svgZTitle.setAttribute("dominant-baseline","central")}
-}
-}
+if(showZ){svgZTitle.style.display="block";const mid=toScreen(project(M,[corner.x,b.y_min,(b.z_min+b.z_max)/2]));placeAxisText(svgZTitle,mid,out,34)}else svgZTitle.style.display="none";
 }
 
 const lr=document.getElementById("labels"),le=DATA.labels.map(x=>{const d=document.createElement("div");d.className="tip";d.textContent=x.text;lr.appendChild(d);return d});
@@ -572,6 +569,30 @@ hoverMarker.style.display="none";
 hoverGuide.style.display="none";
 }
 }
+
+function escXml(v){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function currentExportSvg(){
+render();
+const w=canvas.clientWidth,h=canvas.clientHeight,raster=canvas.toDataURL("image/png");
+const axisMarkup=axesSvg.innerHTML;
+let labelMarkup="";
+for(const el of le){if(el.style.display==="none")continue;const r=el.getBoundingClientRect(),root=document.getElementById("wrap").getBoundingClientRect();labelMarkup+='<text x="'+(r.left-root.left).toFixed(2)+'" y="'+(r.top-root.top+12).toFixed(2)+'" font-family="Arial,sans-serif" font-size="12" fill="#222">'+escXml(el.textContent)+'</text>'}
+const colors=DATA.colorbar.colors,stopsSvg=colors.map((c,i)=>'<stop offset="'+(i/(colors.length-1)*100).toFixed(2)+'%" stop-color="rgb('+c.map(x=>Math.round(x*255)).join(",")+')" />').join("");
+const cbX=w-32,cbY=h*.18,cbH=h*.64;
+const title=DATA.title?'<text x="'+(w/2)+'" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="#222">'+escXml(DATA.title)+'</text>':"";
+const colorbar='<defs><linearGradient id="cbgrad" x1="0" y1="1" x2="0" y2="0">'+stopsSvg+'</linearGradient></defs><rect x="'+cbX+'" y="'+cbY+'" width="18" height="'+cbH+'" fill="url(#cbgrad)" stroke="#aaa"/><text x="'+(cbX-6)+'" y="'+(cbY+10)+'" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#333">'+escXml(DATA.colorbar.raw_max)+'</text><text x="'+(cbX-6)+'" y="'+(cbY+cbH)+'" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#333">'+escXml(DATA.colorbar.raw_min)+'</text>';
+return '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><rect width="100%" height="100%" fill="'+(DATA.background==="transparent"?"none":"white")+'"/><image href="'+raster+'" x="0" y="0" width="'+w+'" height="'+h+'"/><g>'+axisMarkup+'</g>'+labelMarkup+title+colorbar+'</svg>'
+}
+function downloadBlob(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function exportSvg(){downloadBlob(new Blob([currentExportSvg()],{type:"image/svg+xml;charset=utf-8"}),"phylo3d_trait.svg")}
+function exportPng(){
+const svg=currentExportSvg(),blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"}),url=URL.createObjectURL(blob),img=new Image();
+img.onload=()=>{const scale=2,c=document.createElement("canvas");c.width=Math.round(canvas.clientWidth*scale);c.height=Math.round(canvas.clientHeight*scale);const ctx=c.getContext("2d");ctx.scale(scale,scale);ctx.drawImage(img,0,0,canvas.clientWidth,canvas.clientHeight);URL.revokeObjectURL(url);c.toBlob(b=>downloadBlob(b,"phylo3d_trait.png"),"image/png")};
+img.onerror=()=>{URL.revokeObjectURL(url);fail("PNG export failed")};img.src=url
+}
+document.getElementById("reset-view").addEventListener("click",()=>{yaw=initialYaw;pitch=initialPitch;zoom=initialZoom;render()});
+document.getElementById("download-svg").addEventListener("click",exportSvg);
+document.getElementById("download-png").addEventListener("click",exportPng);
 
 canvas.addEventListener("pointerdown",e=>{drag=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId);tooltip.style.display="none";hoverMarker.style.display="none";hoverGuide.style.display="none"});
 canvas.addEventListener("pointerup",()=>drag=false);
