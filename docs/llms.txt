@@ -1,0 +1,36 @@
+# Phylo3D-Trait
+
+> Python software for interactive 3D visualization of continuous trait evolution and supplied ancestral-state estimates on phylogenetic trees.
+
+Canonical repository: https://github.com/hk20013106/Phylo3D-Trait
+Version: 0.3.0
+License: MIT
+
+## Core capabilities
+- Read Newick/Nexus phylogenies.
+- Read CSV/TSV continuous trait values for tips, internal nodes, and root.
+- Render rectangular 3D phylograms.
+- Map trait values to Y-axis geometry and continuous color.
+- Represent branch-length-derived evolutionary depth on Z; interpret as time only for appropriate dated trees.
+- Recommended Four-Layer WebGL2 renderer with fixed four-layer depth peeling.
+- Interactive tip/internal-node inspection.
+- Standalone HTML plus PNG/hybrid SVG export.
+
+## Non-goals
+- No phylogenetic inference.
+- No tree dating.
+- No ancestral-state reconstruction.
+- No sequence analysis.
+- No evolutionary model fitting.
+
+## Primary documentation
+- README: https://github.com/hk20013106/Phylo3D-Trait/blob/main/README.md
+- User/agent guide: https://github.com/hk20013106/Phylo3D-Trait/blob/main/docs/PHYLO3D_TRAIT_USAGE_GUIDE.md
+- Contribution guide: https://github.com/hk20013106/Phylo3D-Trait/blob/main/CONTRIBUTING.md
+- Citation: https://github.com/hk20013106/Phylo3D-Trait/blob/main/CITATION.cff
+
+## CLI
+`python -m phylo3d_trait.cli template-values`
+`python -m phylo3d_trait.cli plot`
+
+The current CLI/source is authoritative if copied documentation conflicts with implementation.
