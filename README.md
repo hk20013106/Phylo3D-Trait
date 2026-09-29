@@ -1,5 +1,6 @@
 # Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization
 
+[![PyPI](https://img.shields.io/pypi/v/phylo3d-trait.svg)](https://pypi.org/project/phylo3d-trait/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/hk20013106/Phylo3D-Trait)](https://github.com/hk20013106/Phylo3D-Trait/releases/latest)
@@ -22,6 +23,7 @@ Generates publication-oriented orthogonal rectangular phylograms with vertical c
 </p>
 <p align="center"><em>Real-world macroevolutionary dataset (Eulipotyphla, 38 species) rendered with the Four-Layer WebGL2 engine at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels.</em></p>
 
+> 🌐 **Project site**: https://hk20013106.github.io/Phylo3D-Trait/  
 > 📖 **User & AI Agent Manual**: [`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)  
 > 🐛 **Bug reports / feature requests**: use [GitHub Issues](https://github.com/hk20013106/Phylo3D-Trait/issues). Pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
@@ -217,11 +219,11 @@ Phylo3D-Trait can be integrated directly into Python pipelines and computational
 ```python
 from phylo3d_trait import (
     parse_tree,
-    load_trait_values,
     build_plot_data,
     build_figure,
     build_four_layer_html,
 )
+from phylo3d_trait.io import load_trait_values
 
 # 1. Parse tree and load trait table
 tree = parse_tree("path/to/tree.nwk")
@@ -290,18 +292,19 @@ fig.write_html("tree3d_plotly.html", include_plotlyjs="cdn")
 
 ## 8. Installation & Testing
 
+Install the stable release from PyPI:
+
 ```bash
-# Clone the repository
+pip install phylo3d-trait
+phylo3d-trait --help
+```
+
+For development from source:
+
+```bash
 git clone https://github.com/hk20013106/Phylo3D-Trait.git
 cd Phylo3D-Trait
-
-# Install package from source
-pip install -e .
-
-# Development install
 pip install -e ".[dev]"
-
-# Run the test suite
 pytest tests/ -v
 ```
 
@@ -313,7 +316,7 @@ If you use **Phylo3D-Trait** in research, cite the software using [`CITATION.cff
 
 Current software citation:
 
-> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.0. GitHub: https://github.com/hk20013106/Phylo3D-Trait
+> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.1. GitHub: https://github.com/hk20013106/Phylo3D-Trait
 
 The motivating macroevolutionary application concerns hemoglobin buffering power ($\beta\text{Hb4}$) and respiratory adaptation across deep-time mammal and bird phylogenies.
 
