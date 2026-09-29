@@ -316,7 +316,7 @@ If you use **Phylo3D-Trait** in research, cite the software using [`CITATION.cff
 
 Current software citation:
 
-> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.1. GitHub: https://github.com/hk20013106/Phylo3D-Trait
+> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.2. GitHub: https://github.com/hk20013106/Phylo3D-Trait
 
 The motivating macroevolutionary application concerns hemoglobin buffering power ($\beta\text{Hb4}$) and respiratory adaptation across deep-time mammal and bird phylogenies.
 
