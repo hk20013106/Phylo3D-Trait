@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use Phylo3D-Trait in research, please cite the software."
+title: "Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization"
+type: software
+authors:
+  - family-names: "He"
+    given-names: "Kai"
+version: "0.3.0"
+date-released: "2026-09-29"
+license: MIT
+repository-code: "https://github.com/hk20013106/Phylo3D-Trait"
+url: "https://github.com/hk20013106/Phylo3D-Trait"
+keywords:
+  - phylogenetics
+  - trait evolution
+  - macroevolution
+  - ancestral states
+  - 3D visualization
+  - scientific visualization
+  - WebGL2
