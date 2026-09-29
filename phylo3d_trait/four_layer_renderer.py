@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from plotly.colors import get_colorscale, sample_colorscale, unlabel_rgb
 
@@ -330,7 +330,7 @@ window.addEventListener("resize",render);render();
 
 def write_four_layer_html(
     plot_data: PlotData,
-    output_path: Path | str,
+    output_path: Union[Path, str],
     *,
     opacity: float = 0.9,
     baseline_y: Optional[float] = None,
