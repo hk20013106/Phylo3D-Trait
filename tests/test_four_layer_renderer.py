@@ -255,3 +255,106 @@ def test_four_layer_generated_html_static_features(tmp_path):
     assert "gl.objects" not in html
 
 
+def test_four_layer_axes_and_hover_visibility_config():
+    data = _data()
+    # 1. Defaults
+    payload_default = _build_payload(
+        data,
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        show_tip_labels=True,
+        show_centerline=True,
+        centerline_color="trait",
+        background="white",
+        camera_preset="elife",
+    )
+    assert payload_default["axes"]["show_x"] is True
+    assert payload_default["axes"]["show_y"] is True
+    assert payload_default["axes"]["show_z"] is True
+    assert payload_default["hover"]["show_tip"] is True
+    assert payload_default["hover"]["show_internal"] is True
+
+    # 2. Disabled
+    payload_disabled = _build_payload(
+        data,
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        show_tip_labels=True,
+        show_centerline=True,
+        centerline_color="trait",
+        background="white",
+        camera_preset="elife",
+        show_x_axis=False,
+        show_y_axis=False,
+        show_z_axis=False,
+        show_tip_hover=False,
+        show_internal_hover=False,
+    )
+    assert payload_disabled["axes"]["show_x"] is False
+    assert payload_disabled["axes"]["show_y"] is False
+    assert payload_disabled["axes"]["show_z"] is False
+    assert payload_disabled["hover"]["show_tip"] is False
+    assert payload_disabled["hover"]["show_internal"] is False
+
+
+def test_four_layer_display_flags_do_not_alter_geometry_or_metadata():
+    data = _data()
+    p_on = _build_payload(
+        data,
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        show_tip_labels=True,
+        show_centerline=True,
+        centerline_color="trait",
+        background="white",
+        camera_preset="elife",
+        show_x_axis=True,
+        show_y_axis=True,
+        show_z_axis=True,
+        show_tip_hover=True,
+        show_internal_hover=True,
+    )
+    p_off = _build_payload(
+        data,
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        show_tip_labels=True,
+        show_centerline=True,
+        centerline_color="trait",
+        background="white",
+        camera_preset="elife",
+        show_x_axis=False,
+        show_y_axis=False,
+        show_z_axis=False,
+        show_tip_hover=False,
+        show_internal_hover=False,
+    )
+
+    # Geometry must be completely invariant
+    assert p_on["mesh"] == p_off["mesh"]
+    assert p_on["centerline"] == p_off["centerline"]
+    assert p_on["stats"] == p_off["stats"]
+    assert p_on["opacity"] == p_off["opacity"]
+    assert p_on["camera_eye"] == p_off["camera_eye"]
+
+    # Scientific node metadata and trait values must be invariant
+    assert p_on["nodes"] == p_off["nodes"]
+
+
+

@@ -299,3 +299,74 @@ def test_cli_branch_color_modes_end_to_end(tmp_path: Path):
     # remains on the actual trait range [1, 5].
     assert '"cmin":1.0' in content or '"cmin": 1.0' in content
     assert '"cmax":5.0' in content or '"cmax": 5.0' in content
+
+
+def test_cli_configurable_axes_and_hover_flags(tmp_path: Path):
+    """Verify CLI accepts --no-x-axis, --no-y-axis, --no-z-axis, --no-tip-hover, --no-internal-hover."""
+    from phylo3d_trait.cli import build_parser
+
+    parser = build_parser()
+    args_default = parser.parse_args([
+        "plot", "--tree", "t.nwk", "--values", "v.csv", "--output", "o.html"
+    ])
+    assert args_default.no_x_axis is False
+    assert args_default.no_y_axis is False
+    assert args_default.no_z_axis is False
+    assert args_default.no_tip_hover is False
+    assert args_default.no_internal_hover is False
+
+    args_custom = parser.parse_args([
+        "plot", "--tree", "t.nwk", "--values", "v.csv", "--output", "o.html",
+        "--no-x-axis", "--no-y-axis", "--no-z-axis", "--no-tip-hover", "--no-internal-hover"
+    ])
+    assert args_custom.no_x_axis is True
+    assert args_custom.no_y_axis is True
+    assert args_custom.no_z_axis is True
+    assert args_custom.no_tip_hover is True
+    assert args_custom.no_internal_hover is True
+
+    # Test end-to-end execution on example 1 with four-layer renderer
+    repo_root = Path(__file__).parent.parent
+    tree_file = repo_root / "examples" / "example1" / "tree.nwk"
+    values_file = repo_root / "examples" / "example1" / "node_values.csv"
+    out_html_four_layer = tmp_path / "ex1_no_axes_hover_four_layer.html"
+
+    code1 = main([
+        "plot",
+        "--tree", str(tree_file),
+        "--values", str(values_file),
+        "--output", str(out_html_four_layer),
+        "--renderer", "four-layer",
+        "--no-x-axis",
+        "--no-y-axis",
+        "--no-z-axis",
+        "--no-tip-hover",
+        "--no-internal-hover",
+    ])
+    assert code1 == 0
+    assert out_html_four_layer.exists()
+    content1 = out_html_four_layer.read_text(encoding="utf-8")
+    assert '"show_x":false' in content1 or '"show_x": false' in content1
+    assert '"show_y":false' in content1 or '"show_y": false' in content1
+    assert '"show_z":false' in content1 or '"show_z": false' in content1
+    assert '"show_tip":false' in content1 or '"show_tip": false' in content1
+    assert '"show_internal":false' in content1 or '"show_internal": false' in content1
+
+    # Test end-to-end execution on example 1 with plotly renderer
+    out_html_plotly = tmp_path / "ex1_no_axes_hover_plotly.html"
+    code2 = main([
+        "plot",
+        "--tree", str(tree_file),
+        "--values", str(values_file),
+        "--output", str(out_html_plotly),
+        "--renderer", "plotly",
+        "--no-x-axis",
+        "--no-y-axis",
+        "--no-z-axis",
+        "--no-tip-hover",
+        "--no-internal-hover",
+    ])
+    assert code2 == 0
+    assert out_html_plotly.exists()
+    content2 = out_html_plotly.read_text(encoding="utf-8")
+    assert '"visible": false' in content2 or '"visible":false' in content2

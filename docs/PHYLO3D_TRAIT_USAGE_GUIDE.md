@@ -727,6 +727,11 @@ python -m phylo3d_trait.cli plot --help
 | `--no-centerline` | flag | `False` | 是否关闭分支顶缘轮廓线 |
 | `--centerline-color` | `dark`, `trait`, 或 CSS color | `dark` | 顶缘轮廓线颜色模式 |
 | `--no-labels` | flag | `False` | 是否隐藏 Tree Layout 轴上的末端物种名称文字标签（关闭后不显示物种名，亦不回退至数字坐标） |
+| `--no-x-axis` | flag | `False` | 是否隐藏 Tree Layout（X）轴线、边框线与网格（默认开启，numeric tick labels 隐藏） |
+| `--no-y-axis` | flag | `False` | 是否隐藏 Trait value（Y）轴线、刻度、数值标签与轴标题（默认开启） |
+| `--no-z-axis` | flag | `False` | 是否隐藏 Time before present（Z）轴线、刻度、数值标签与轴标题（默认开启） |
+| `--no-tip-hover` | flag | `False` | 是否关闭 terminal tip 末端分类单元的鼠标悬停交互提示与指示器（默认开启） |
+| `--no-internal-hover` | flag | `False` | 是否关闭 internal node 祖先内部节点的鼠标悬停交互提示与指示器（默认开启） |
 | `--title` | string | 默认标题 | 图像顶部标题文本 |
 
 可以通过 `python -m phylo3d_trait.cli plot --help` 查看所有参数的实时官方说明。

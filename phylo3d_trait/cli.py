@@ -152,6 +152,21 @@ def build_parser() -> argparse.ArgumentParser:
     plot_parser.add_argument(
         "--show-node-markers", action="store_true", help="Render diamond markers at ancestral nodes (default: False)"
     )
+    plot_parser.add_argument(
+        "--no-x-axis", action="store_true", help="Hide Tree Layout (X) axis line, grid, and frame lines"
+    )
+    plot_parser.add_argument(
+        "--no-y-axis", action="store_true", help="Hide Trait value (Y) axis line, ticks, labels, and title"
+    )
+    plot_parser.add_argument(
+        "--no-z-axis", action="store_true", help="Hide Time before present (Z) axis line, ticks, labels, and title"
+    )
+    plot_parser.add_argument(
+        "--no-tip-hover", action="store_true", help="Disable interactive hover tooltip and indicator on terminal tip taxa"
+    )
+    plot_parser.add_argument(
+        "--no-internal-hover", action="store_true", help="Disable interactive hover tooltip and indicator on internal ancestral nodes"
+    )
 
     # 2. 'template-values' command
     tpl_parser = subparsers.add_parser(
@@ -218,6 +233,11 @@ def run_plot(args: argparse.Namespace) -> int:
                 centerline_color=args.centerline_color,
                 background=args.background,
                 camera_preset=args.camera_preset,
+                show_x_axis=not args.no_x_axis,
+                show_y_axis=not args.no_y_axis,
+                show_z_axis=not args.no_z_axis,
+                show_tip_hover=not args.no_tip_hover,
+                show_internal_hover=not args.no_internal_hover,
             )
             print(
                 "Four-layer renderer: "
@@ -244,6 +264,11 @@ def run_plot(args: argparse.Namespace) -> int:
                 curtain_color_mode=args.curtain_color_mode,
                 trait_axis_scale=args.trait_axis_scale,
                 tip_label_offset=args.tip_label_offset,
+                show_x_axis=not args.no_x_axis,
+                show_y_axis=not args.no_y_axis,
+                show_z_axis=not args.no_z_axis,
+                show_tip_hover=not args.no_tip_hover,
+                show_internal_hover=not args.no_internal_hover,
             )
             fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
         print(f"Successfully generated 3D phylogenetic visualization: {out_path}")

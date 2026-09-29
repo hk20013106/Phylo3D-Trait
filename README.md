@@ -200,6 +200,11 @@ python -m phylo3d_trait.cli plot -h
 - `--no-mesh`: Disable continuous curtain mesh surfaces.
 - `--no-centerline`: Disable branch top centerline outlines.
 - `--no-labels`: Disable terminal taxon labels on the Tree Layout axis (hides tick labels without reverting to numeric coordinates).
+- `--no-x-axis`: Hide Tree Layout (X) axis line, grid, and frame lines (default: shown without numeric tick labels).
+- `--no-y-axis`: Hide Trait value (Y) axis line, ticks, labels, and title (default: shown).
+- `--no-z-axis`: Hide Time before present (Z) axis line, ticks, labels, and title (default: shown).
+- `--no-tip-hover`: Disable interactive hover tooltip and indicator on terminal tip taxa (default: enabled).
+- `--no-internal-hover`: Disable interactive hover tooltip and indicator on internal ancestral nodes (default: enabled).
 
 ---
 

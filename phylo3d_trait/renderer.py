@@ -339,6 +339,11 @@ def build_figure(
     curtain_color_mode: str = "height",
     trait_axis_scale: float = 1.0,
     tip_label_offset: Optional[float] = None,
+    show_x_axis: bool = True,
+    show_y_axis: bool = True,
+    show_z_axis: bool = True,
+    show_tip_hover: bool = True,
+    show_internal_hover: bool = True,
 ) -> go.Figure:
     """Construct an interactive Plotly 3D Figure in clean publication style with eLife-style camera.
 
@@ -374,6 +379,11 @@ def build_figure(
             Time-before-present span. ``None`` (default) uses
             ``DEFAULT_TIP_LABEL_OFFSET_FRACTION`` (0.03). 0.0 keeps labels
             exactly on the present plane. Must be finite and >= 0.
+        show_x_axis: Whether to show the Tree Layout (X) axis line and grid (default: True).
+        show_y_axis: Whether to show the Trait value (Y) axis, ticks, and title (default: True).
+        show_z_axis: Whether to show the Time before present (Z) axis, ticks, and title (default: True).
+        show_tip_hover: Whether to enable hover picking on terminal tip taxa (default: True).
+        show_internal_hover: Whether to enable hover picking on internal ancestral nodes (default: True).
 
     Returns:
         Plotly go.Figure configured for interactive 3D display.
@@ -583,7 +593,7 @@ def build_figure(
 
     # 3. Ancestral Internal Nodes trace (Visible when show_node_markers=True, hoverable via invisible markers when False)
     internal_nodes = [n for n in plot_data.nodes.values() if not n.is_tip]
-    if internal_nodes:
+    if internal_nodes and (show_internal_hover or show_node_markers):
         if is_transformed:
             customdata_internal = [
                 [
@@ -641,7 +651,8 @@ def build_figure(
                 mode="markers",
                 marker=internal_marker_cfg,
                 customdata=customdata_internal,
-                hovertemplate=hovertemplate_internal,
+                hovertemplate=hovertemplate_internal if show_internal_hover else None,
+                hoverinfo=None if show_internal_hover else "skip",
                 name="Internal Nodes",
                 showlegend=False,
             )
@@ -649,7 +660,7 @@ def build_figure(
 
     # 4. Terminal Nodes hover trace (Positions point indicator, XYZ spikes, and raw Hb buffer value at tree tips)
     tip_nodes = [n for n in plot_data.nodes.values() if n.is_tip]
-    if tip_nodes:
+    if tip_nodes and show_tip_hover:
         if is_transformed:
             customdata_tip = [
                 [n.label, n.node_id, n.raw_trait, n.display_trait]
@@ -734,6 +745,7 @@ def build_figure(
 
     # 6. Configure Tree Layout axis (title removed, numeric ticks hidden, 3D spikes enabled)
     xaxis_cfg: Dict[str, Any] = dict(
+        visible=show_x_axis,
         title=dict(text=""),
         showticklabels=False,
         ticks="",
@@ -773,6 +785,7 @@ def build_figure(
         camera_cfg = CAMERA_PRESETS.get(camera_preset.lower(), CAMERA_PRESETS["elife"])
 
     yaxis_cfg = dict(
+        visible=show_y_axis,
         title=dict(text=y_axis_title, font=dict(size=13, color="#333333")),
         showbackground=False,
         gridcolor="#e5e5e5",
@@ -801,6 +814,7 @@ def build_figure(
             xaxis=xaxis_cfg,
             yaxis=yaxis_cfg,
             zaxis=dict(
+                visible=show_z_axis,
                 title=dict(text="Time before present", font=dict(size=13, color="#333333")),
                 showbackground=False,
                 gridcolor="#e5e5e5",

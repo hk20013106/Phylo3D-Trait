@@ -116,6 +116,11 @@ def _build_payload(
     centerline_color: str,
     background: str,
     camera_preset: str,
+    show_x_axis: bool = True,
+    show_y_axis: bool = True,
+    show_z_axis: bool = True,
+    show_tip_hover: bool = True,
+    show_internal_hover: bool = True,
 ) -> Dict[str, Any]:
     opacity = _validate_opacity(opacity)
     trait_axis_scale = float(trait_axis_scale)
@@ -297,6 +302,9 @@ def _build_payload(
     title_offset_x = 0.12 * x_span
 
     axes = {
+        "show_x": bool(show_x_axis),
+        "show_y": bool(show_y_axis),
+        "show_z": bool(show_z_axis),
         "frame_lines": [
             [convert(bx_min, by_min, bz_min), convert(bx_max, by_min, bz_min)],
             [convert(bx_max, by_min, bz_min), convert(bx_max, by_min, bz_max)],
@@ -305,6 +313,7 @@ def _build_payload(
             [convert(bx_min, by_min, bz_max), convert(bx_min, by_max, bz_max)],
         ],
         "y_axis": {
+            "visible": bool(show_y_axis),
             "title": {
                 "text": "Trait value",
                 "pos": convert(bx_min - title_offset_x, (by_min + by_max) / 2.0, bz_max),
@@ -321,6 +330,7 @@ def _build_payload(
             ],
         },
         "z_axis": {
+            "visible": bool(show_z_axis),
             "title": {
                 "text": "Time before present",
                 "pos": convert(bx_min - title_offset_x, by_min, (bz_min + bz_max) / 2.0),
@@ -337,6 +347,7 @@ def _build_payload(
             ],
         },
         "x_axis": {
+            "visible": bool(show_x_axis),
             "show_numeric_labels": False,
         },
     }
@@ -360,6 +371,10 @@ def _build_payload(
         "labels": labels,
         "nodes": nodes,
         "axes": axes,
+        "hover": {
+            "show_tip": bool(show_tip_hover),
+            "show_internal": bool(show_internal_hover),
+        },
         "background": background,
         "camera_eye": [float(eye[k]) for k in ("x", "y", "z")],
         "title": plot_data.title,
@@ -452,11 +467,48 @@ const hoverMarker=document.createElementNS("http://www.w3.org/2000/svg","circle"
 function toScreen(p){return[(p[0]*.5+.5)*canvas.clientWidth,(-p[1]*.5+.5)*canvas.clientHeight,p[2]]}
 function updateAxes(M){
 if(!DATA.axes)return;
-DATA.axes.frame_lines.forEach((pts,i)=>{const p0=project(M,pts[0]),p1=project(M,pts[1]),l=svgFrameLines[i];if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){l.style.display="none"}else{l.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);l.setAttribute("x1",s0[0]);l.setAttribute("y1",s0[1]);l.setAttribute("x2",s1[0]);l.setAttribute("y2",s1[1])}});
-svgYTicks.forEach(item=>{const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}});
-if(DATA.axes.y_axis&&DATA.axes.y_axis.title){const ytp0=project(M,DATA.axes.y_axis.title.axis_pos),ytp1=project(M,DATA.axes.y_axis.title.pos);if(ytp1[2]<-1||ytp1[2]>1){svgYTitle.style.display="none"}else{svgYTitle.style.display="block";const s0=toScreen(ytp0),s1=toScreen(ytp1);svgYTitle.setAttribute("x",s1[0]);svgYTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgYTitle.setAttribute("text-anchor","end");svgYTitle.setAttribute("dx","-8")}else{svgYTitle.setAttribute("text-anchor","start");svgYTitle.setAttribute("dx","8")}svgYTitle.setAttribute("dominant-baseline","central")}}
-svgZTicks.forEach(item=>{const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}});
-if(DATA.axes.z_axis&&DATA.axes.z_axis.title){const ztp0=project(M,DATA.axes.z_axis.title.axis_pos),ztp1=project(M,DATA.axes.z_axis.title.pos);if(ztp1[2]<-1||ztp1[2]>1){svgZTitle.style.display="none"}else{svgZTitle.style.display="block";const s0=toScreen(ztp0),s1=toScreen(ztp1);svgZTitle.setAttribute("x",s1[0]);svgZTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgZTitle.setAttribute("text-anchor","end");svgZTitle.setAttribute("dx","-8")}else{svgZTitle.setAttribute("text-anchor","start");svgZTitle.setAttribute("dx","8")}svgZTitle.setAttribute("dominant-baseline","central")}}
+const showX = DATA.axes.show_x !== false;
+const showY = DATA.axes.show_y !== false;
+const showZ = DATA.axes.show_z !== false;
+DATA.axes.frame_lines.forEach((pts,i)=>{
+const l=svgFrameLines[i];
+let visible = true;
+if(i===0||i===2){if(!showX)visible=false;}
+else if(i===1||i===3){if(!showZ)visible=false;}
+else if(i===4){if(!showY)visible=false;}
+if(!visible){l.style.display="none";return;}
+const p0=project(M,pts[0]),p1=project(M,pts[1]);
+if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){l.style.display="none"}
+else{l.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);l.setAttribute("x1",s0[0]);l.setAttribute("y1",s0[1]);l.setAttribute("x2",s1[0]);l.setAttribute("y2",s1[1])}
+});
+svgYTicks.forEach(item=>{
+if(!showY){item.line.style.display="none";item.text.style.display="none";return;}
+const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);
+if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}
+else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("x2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}
+});
+if(DATA.axes.y_axis&&DATA.axes.y_axis.title){
+if(!showY){svgYTitle.style.display="none";}
+else{
+const ytp0=project(M,DATA.axes.y_axis.title.axis_pos),ytp1=project(M,DATA.axes.y_axis.title.pos);
+if(ytp1[2]<-1||ytp1[2]>1){svgYTitle.style.display="none"}
+else{svgYTitle.style.display="block";const s0=toScreen(ytp0),s1=toScreen(ytp1);svgYTitle.setAttribute("x",s1[0]);svgYTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgYTitle.setAttribute("text-anchor","end");svgYTitle.setAttribute("dx","-8")}else{svgYTitle.setAttribute("text-anchor","start");svgYTitle.setAttribute("dx","8")}svgYTitle.setAttribute("dominant-baseline","central")}
+}
+}
+svgZTicks.forEach(item=>{
+if(!showZ){item.line.style.display="none";item.text.style.display="none";return;}
+const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);
+if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}
+else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}
+});
+if(DATA.axes.z_axis&&DATA.axes.z_axis.title){
+if(!showZ){svgZTitle.style.display="none";}
+else{
+const ztp0=project(M,DATA.axes.z_axis.title.axis_pos),ztp1=project(M,DATA.axes.z_axis.title.pos);
+if(ztp1[2]<-1||ztp1[2]>1){svgZTitle.style.display="none"}
+else{svgZTitle.style.display="block";const s0=toScreen(ztp0),s1=toScreen(ztp1);svgZTitle.setAttribute("x",s1[0]);svgZTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgZTitle.setAttribute("text-anchor","end");svgZTitle.setAttribute("dx","-8")}else{svgZTitle.setAttribute("text-anchor","start");svgZTitle.setAttribute("dx","8")}svgZTitle.setAttribute("dominant-baseline","central")}
+}
+}
 }
 
 const lr=document.getElementById("labels"),le=DATA.labels.map(x=>{const d=document.createElement("div");d.className="tip";d.textContent=x.text;lr.appendChild(d);return d});
@@ -472,9 +524,23 @@ projectedNodes=DATA.nodes.map(n=>{const p=project(M,n.position);return{node:n,vi
 function updateHover(mx,my){
 lastMouse={x:mx,y:my};
 if(!projectedNodes.length)return;
+const showTip = !DATA.hover || DATA.hover.show_tip !== false;
+const showInternal = !DATA.hover || DATA.hover.show_internal !== false;
+if(!showTip && !showInternal){
+tooltip.style.display="none";
+hoverMarker.style.display="none";
+hoverGuide.style.display="none";
+return;
+}
 const radius=18;
 let closest=null,minDist=radius;
-for(const p of projectedNodes){if(!p.visible)continue;const d=Math.hypot(p.sx-mx,p.sy-my);if(d<minDist){minDist=d;closest=p}}
+for(const p of projectedNodes){
+if(!p.visible)continue;
+if(p.node.is_tip && !showTip)continue;
+if(!p.node.is_tip && !showInternal)continue;
+const d=Math.hypot(p.sx-mx,p.sy-my);
+if(d<minDist){minDist=d;closest=p}
+}
 if(closest){
 const n=closest.node;
 if(n.is_tip){
@@ -541,6 +607,11 @@ def write_four_layer_html(
     centerline_color: str = "dark",
     background: str = "white",
     camera_preset: str = "elife",
+    show_x_axis: bool = True,
+    show_y_axis: bool = True,
+    show_z_axis: bool = True,
+    show_tip_hover: bool = True,
+    show_internal_hover: bool = True,
 ) -> Dict[str, Any]:
     """Write an interactive four-layer WebGL2 HTML visualization."""
     payload = _build_payload(
@@ -556,6 +627,11 @@ def write_four_layer_html(
         centerline_color=centerline_color,
         background=background,
         camera_preset=camera_preset,
+        show_x_axis=show_x_axis,
+        show_y_axis=show_y_axis,
+        show_z_axis=show_z_axis,
+        show_tip_hover=show_tip_hover,
+        show_internal_hover=show_internal_hover,
     )
     html = _HTML.replace(
         "__PHYLO3D_PAYLOAD__",
