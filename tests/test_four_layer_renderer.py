@@ -104,3 +104,22 @@ def test_cli_exposes_four_layer_backend():
     )
     assert args.renderer == "four-layer"
     assert args.opacity == pytest.approx(0.7)
+
+
+def test_generated_html_clears_samplers_before_peel_and_performs_symmetric_cleanup(tmp_path):
+    out = tmp_path / "four_layer_cleanup.html"
+    write_four_layer_html(
+        _data(),
+        out,
+        opacity=0.7,
+        baseline_y=0.0,
+    )
+    html = out.read_text(encoding="utf-8")
+
+    # Guard against WebGL feedback loop (GL_INVALID_OPERATION 1282):
+    # Must unbind TEXTURE0 before entering peel loop
+    assert "gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,null);" in html
+    # Must perform symmetric cleanup after line draw and at render exit
+    assert "gl.bindFramebuffer(gl.FRAMEBUFFER,null);" in html
+    assert "gl.bindVertexArray(null);" in html
+
