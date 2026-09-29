@@ -2,6 +2,13 @@
 
 All notable user-visible changes are documented here.
 
+## [0.3.2] - 2026-09-30
+
+### Archival and distribution
+- Metadata/distribution release intended to trigger Zenodo archival and DOI registration.
+- Version metadata synchronized across Python package, citation metadata, README, AI-readable metadata, and CI package smoke tests.
+- No scientific computation, CLI semantics, or rendering behavior changed from v0.3.1.
+
 ## [0.3.1] - 2026-09-30
 
 ### Packaging and distribution
