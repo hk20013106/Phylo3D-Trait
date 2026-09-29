@@ -19,6 +19,7 @@ from phylo3d_trait.renderer import (
     CAMERA_PRESETS,
     DEFAULT_TIP_LABEL_OFFSET_FRACTION,
     _build_branch_curtains_geometry,
+    _generate_rescaled_ticks,
 )
 
 FOUR_LAYER_PEELS = 4
@@ -226,6 +227,120 @@ def _build_payload(
         reverse_colorscale,
     )
 
+    nodes = []
+    for node in plot_data.nodes.values():
+        descendants = ""
+        if not node.is_tip and node.descendant_tips:
+            desc_sample = ", ".join(node.descendant_tips[:3])
+            if len(node.descendant_tips) > 3:
+                desc_sample += "..."
+            descendants = f"Descendants ({len(node.descendant_tips)} tips): {desc_sample}"
+
+        raw_val = float(node.raw_trait if node.raw_trait is not None else node.trait)
+        disp_val = float(node.display_trait if node.display_trait is not None else node.y)
+
+        nodes.append({
+            "node_id": str(node.node_id),
+            "label": str(node.label),
+            "is_tip": bool(node.is_tip),
+            "position": convert(node.x, node.y, node.z),
+            "baseline_pos": convert(node.x, baseline, node.z),
+            "x": float(node.x),
+            "time": float(node.time),
+            "raw_trait": raw_val,
+            "display_trait": disp_val,
+            "descendants": descendants,
+        })
+
+    y_tickvals, y_ticktext = _generate_rescaled_ticks(
+        plot_data=plot_data,
+        baseline_y=baseline,
+        num_ticks=5,
+        include_baseline=True,
+    )
+    if not y_tickvals:
+        d_min = min(float(plot_data.trait_min), baseline)
+        d_max = float(plot_data.trait_max)
+        if d_max == d_min:
+            y_tickvals = [d_min]
+            y_ticktext = [f"{d_min:.4f}".rstrip("0").rstrip(".")]
+        else:
+            step = (d_max - d_min) / 4.0
+            y_tickvals = [d_min + i * step for i in range(5)]
+            y_ticktext = [
+                str(int(round(v))) if abs(v - round(v)) < 1e-6 else f"{v:.4f}".rstrip("0").rstrip(".")
+                for v in y_tickvals
+            ]
+
+    z_min = float(plot_data.time_min)
+    z_max = float(plot_data.time_max)
+    if z_max == z_min:
+        z_tickvals = [z_min]
+        z_ticktext = [f"{z_min:.4f}".rstrip("0").rstrip(".")]
+    else:
+        step_z = (z_max - z_min) / 4.0
+        z_tickvals = [z_min + i * step_z for i in range(5)]
+        z_ticktext = [
+            str(int(round(v))) if abs(v - round(v)) < 1e-4 else f"{v:.1f}"
+            for v in z_tickvals
+        ]
+
+    bx_min = float(plot_data.x_min)
+    bx_max = float(plot_data.x_max)
+    by_min = min(float(plot_data.trait_min), baseline)
+    by_max = max([float(v) for v in y_tickvals] + [float(plot_data.trait_max)])
+    bz_min = float(plot_data.time_min)
+    bz_max = float(plot_data.time_max)
+
+    x_span = max(bx_max - bx_min, 1.0)
+    tick_len_x = 0.03 * x_span
+    title_offset_x = 0.12 * x_span
+
+    axes = {
+        "frame_lines": [
+            [convert(bx_min, by_min, bz_min), convert(bx_max, by_min, bz_min)],
+            [convert(bx_max, by_min, bz_min), convert(bx_max, by_min, bz_max)],
+            [convert(bx_max, by_min, bz_max), convert(bx_min, by_min, bz_max)],
+            [convert(bx_min, by_min, bz_max), convert(bx_min, by_min, bz_min)],
+            [convert(bx_min, by_min, bz_max), convert(bx_min, by_max, bz_max)],
+        ],
+        "y_axis": {
+            "title": {
+                "text": "Trait value",
+                "pos": convert(bx_min - title_offset_x, (by_min + by_max) / 2.0, bz_max),
+                "axis_pos": convert(bx_min, (by_min + by_max) / 2.0, bz_max),
+            },
+            "ticks": [
+                {
+                    "val": float(v),
+                    "text": str(t),
+                    "pos": convert(bx_min, v, bz_max),
+                    "tick_end": convert(bx_min - tick_len_x, v, bz_max),
+                }
+                for v, t in zip(y_tickvals, y_ticktext)
+            ],
+        },
+        "z_axis": {
+            "title": {
+                "text": "Time before present",
+                "pos": convert(bx_min - title_offset_x, by_min, (bz_min + bz_max) / 2.0),
+                "axis_pos": convert(bx_min, by_min, (bz_min + bz_max) / 2.0),
+            },
+            "ticks": [
+                {
+                    "val": float(v),
+                    "text": str(t),
+                    "pos": convert(bx_min, by_min, v),
+                    "tick_end": convert(bx_min - tick_len_x, by_min, v),
+                }
+                for v, t in zip(z_tickvals, z_ticktext)
+            ],
+        },
+        "x_axis": {
+            "show_numeric_labels": False,
+        },
+    }
+
     return {
         "schema": "phylo3d-four-layer-v1",
         "peel_layers": 4,
@@ -243,6 +358,8 @@ def _build_payload(
             "colors": [v for rgb in line_colors for v in rgb],
         },
         "labels": labels,
+        "nodes": nodes,
+        "axes": axes,
         "background": background,
         "camera_eye": [float(eye[k]) for k in ("x", "y", "z")],
         "title": plot_data.title,
@@ -255,6 +372,7 @@ def _build_payload(
             "vertices": len(positions) // 3,
             "triangles": len(indices) // 3,
             "line_vertices": len(line_positions) // 3,
+            "nodes": len(nodes),
         },
     }
 
@@ -266,14 +384,20 @@ _HTML = r"""<!doctype html>
 <style>
 html,body,#wrap{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,sans-serif}
 #wrap{position:relative;background:white}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#axes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.axis-line{stroke:#888;stroke-width:1.2;stroke-linecap:round}
+.axis-tick{stroke:#888;stroke-width:1.2}
+.axis-label{font-family:Arial,sans-serif;font-size:11px;fill:#444}
+.axis-title{font-family:Arial,sans-serif;font-size:13px;font-weight:bold;fill:#222}
 #labels{position:absolute;inset:0;pointer-events:none}.tip{position:absolute;font-size:12px;color:#222;white-space:nowrap}
+#tooltip{display:none;position:absolute;pointer-events:none;background:rgba(255,255,255,.95);border:1px solid #ccc;border-radius:4px;padding:8px 10px;font:12px/1.4 Arial,sans-serif;color:#222;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap;z-index:100}
 #title{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:18px;color:#222}
 #badge{position:absolute;left:10px;bottom:10px;background:rgba(255,255,255,.86);border:1px solid #ddd;padding:6px 8px;font:12px monospace}
 #cb{position:absolute;right:16px;top:18%;height:64%;width:62px}#grad{position:absolute;right:0;top:18px;width:18px;height:calc(100% - 36px);border:1px solid #aaa}
 #mx,#mn{position:absolute;right:24px;font-size:11px;color:#333}#mx{top:8px}#mn{bottom:8px}
 #err{display:none;position:absolute;inset:20px;background:#fff4f4;border:1px solid #b00;padding:16px;color:#900;white-space:pre-wrap}
 </style></head>
-<body><div id="wrap"><canvas id="gl"></canvas><div id="labels"></div><div id="title"></div>
+<body><div id="wrap"><canvas id="gl"></canvas><svg id="axes"></svg><div id="labels"></div><div id="tooltip"></div><div id="title"></div>
 <div id="cb"><div id="grad"></div><div id="mx"></div><div id="mn"></div></div>
 <div id="badge"></div><div id="err"></div></div>
 <script>
@@ -315,15 +439,89 @@ function project(m,p){const x=p[0],y=p[1],z=p[2],w=m[3]*x+m[7]*y+m[11]*z+m[15];r
 
 const iv=norm(DATA.camera_eye);let yaw=Math.atan2(iv[0],iv[2]),pitch=Math.asin(Math.max(-.98,Math.min(.98,iv[1]))),zoom=2.2,drag=false,lx=0,ly=0;
 function mvp(){const d=4,cp=Math.cos(pitch),eye=[d*cp*Math.sin(yaw),d*Math.sin(pitch),d*cp*Math.cos(yaw)],a=canvas.width/canvas.height;return mul(ortho(-zoom*a,zoom*a,-zoom,zoom,-20,20),look(eye))}
-canvas.addEventListener("pointerdown",e=>{drag=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId)});canvas.addEventListener("pointerup",()=>drag=false);canvas.addEventListener("pointermove",e=>{if(!drag)return;yaw-=(e.clientX-lx)*.008;pitch+=(e.clientY-ly)*.008;pitch=Math.max(-1.45,Math.min(1.45,pitch));lx=e.clientX;ly=e.clientY;render()});canvas.addEventListener("wheel",e=>{e.preventDefault();zoom*=Math.exp(e.deltaY*.001);zoom=Math.max(.5,Math.min(8,zoom));render()},{passive:false});
+
+const axesSvg=document.getElementById("axes");
+const svgFrameLines=(DATA.axes&&DATA.axes.frame_lines?DATA.axes.frame_lines:[]).map(()=>{const l=document.createElementNS("http://www.w3.org/2000/svg","line");l.setAttribute("class","axis-line");axesSvg.appendChild(l);return l});
+const svgYTicks=(DATA.axes&&DATA.axes.y_axis?DATA.axes.y_axis.ticks:[]).map(t=>{const line=document.createElementNS("http://www.w3.org/2000/svg","line");line.setAttribute("class","axis-tick");axesSvg.appendChild(line);const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("class","axis-label");text.textContent=t.text;axesSvg.appendChild(text);return{line,text,data:t}});
+const svgYTitle=document.createElementNS("http://www.w3.org/2000/svg","text");svgYTitle.setAttribute("class","axis-title");if(DATA.axes&&DATA.axes.y_axis&&DATA.axes.y_axis.title)svgYTitle.textContent=DATA.axes.y_axis.title.text;axesSvg.appendChild(svgYTitle);
+const svgZTicks=(DATA.axes&&DATA.axes.z_axis?DATA.axes.z_axis.ticks:[]).map(t=>{const line=document.createElementNS("http://www.w3.org/2000/svg","line");line.setAttribute("class","axis-tick");axesSvg.appendChild(line);const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("class","axis-label");text.textContent=t.text;axesSvg.appendChild(text);return{line,text,data:t}});
+const svgZTitle=document.createElementNS("http://www.w3.org/2000/svg","text");svgZTitle.setAttribute("class","axis-title");if(DATA.axes&&DATA.axes.z_axis&&DATA.axes.z_axis.title)svgZTitle.textContent=DATA.axes.z_axis.title.text;axesSvg.appendChild(svgZTitle);
+const hoverGuide=document.createElementNS("http://www.w3.org/2000/svg","line");hoverGuide.setAttribute("id","hover-guide");hoverGuide.setAttribute("stroke","#e65100");hoverGuide.setAttribute("stroke-width","1.5");hoverGuide.setAttribute("stroke-dasharray","3,3");hoverGuide.style.display="none";axesSvg.appendChild(hoverGuide);
+const hoverMarker=document.createElementNS("http://www.w3.org/2000/svg","circle");hoverMarker.setAttribute("id","hover-marker");hoverMarker.setAttribute("r","5");hoverMarker.setAttribute("fill","#ff7f0e");hoverMarker.setAttribute("stroke","#ffffff");hoverMarker.setAttribute("stroke-width","1.5");hoverMarker.style.display="none";axesSvg.appendChild(hoverMarker);
+
+function toScreen(p){return[(p[0]*.5+.5)*canvas.clientWidth,(-p[1]*.5+.5)*canvas.clientHeight,p[2]]}
+function updateAxes(M){
+if(!DATA.axes)return;
+DATA.axes.frame_lines.forEach((pts,i)=>{const p0=project(M,pts[0]),p1=project(M,pts[1]),l=svgFrameLines[i];if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){l.style.display="none"}else{l.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);l.setAttribute("x1",s0[0]);l.setAttribute("y1",s0[1]);l.setAttribute("x2",s1[0]);l.setAttribute("y2",s1[1])}});
+svgYTicks.forEach(item=>{const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}});
+if(DATA.axes.y_axis&&DATA.axes.y_axis.title){const ytp0=project(M,DATA.axes.y_axis.title.axis_pos),ytp1=project(M,DATA.axes.y_axis.title.pos);if(ytp1[2]<-1||ytp1[2]>1){svgYTitle.style.display="none"}else{svgYTitle.style.display="block";const s0=toScreen(ytp0),s1=toScreen(ytp1);svgYTitle.setAttribute("x",s1[0]);svgYTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgYTitle.setAttribute("text-anchor","end");svgYTitle.setAttribute("dx","-8")}else{svgYTitle.setAttribute("text-anchor","start");svgYTitle.setAttribute("dx","8")}svgYTitle.setAttribute("dominant-baseline","central")}}
+svgZTicks.forEach(item=>{const p0=project(M,item.data.pos),p1=project(M,item.data.tick_end);if(p0[2]<-1||p0[2]>1||p1[2]<-1||p1[2]>1){item.line.style.display="none";item.text.style.display="none"}else{item.line.style.display="block";item.text.style.display="block";const s0=toScreen(p0),s1=toScreen(p1);item.line.setAttribute("x1",s0[0]);item.line.setAttribute("y1",s0[1]);item.line.setAttribute("x2",s1[0]);item.line.setAttribute("y2",s1[1]);item.text.setAttribute("x",s1[0]);item.text.setAttribute("y",s1[1]);if(s1[0]<s0[0]){item.text.setAttribute("text-anchor","end");item.text.setAttribute("dx","-4")}else{item.text.setAttribute("text-anchor","start");item.text.setAttribute("dx","4")}item.text.setAttribute("dominant-baseline","central")}});
+if(DATA.axes.z_axis&&DATA.axes.z_axis.title){const ztp0=project(M,DATA.axes.z_axis.title.axis_pos),ztp1=project(M,DATA.axes.z_axis.title.pos);if(ztp1[2]<-1||ztp1[2]>1){svgZTitle.style.display="none"}else{svgZTitle.style.display="block";const s0=toScreen(ztp0),s1=toScreen(ztp1);svgZTitle.setAttribute("x",s1[0]);svgZTitle.setAttribute("y",s1[1]);if(s1[0]<s0[0]){svgZTitle.setAttribute("text-anchor","end");svgZTitle.setAttribute("dx","-8")}else{svgZTitle.setAttribute("text-anchor","start");svgZTitle.setAttribute("dx","8")}svgZTitle.setAttribute("dominant-baseline","central")}}
+}
 
 const lr=document.getElementById("labels"),le=DATA.labels.map(x=>{const d=document.createElement("div");d.className="tip";d.textContent=x.text;lr.appendChild(d);return d});
 function labels(M){const eyeX=Math.cos(pitch)*Math.sin(yaw);const tx=eyeX<0?"translate(calc(-100% - 3px),-50%)":"translate(3px,-50%)";DATA.labels.forEach((x,i)=>{const p=project(M,x.position),e=le[i];e.style.display=(p[2]<-1||p[2]>1)?"none":"block";e.style.left=((p[0]*.5+.5)*canvas.clientWidth)+"px";e.style.top=((-p[1]*.5+.5)*canvas.clientHeight)+"px";e.style.transform=tx})}
 
+let currentM=null,projectedNodes=[],lastMouse=null;
+const tooltip=document.getElementById("tooltip");
+function updateProjectedNodes(M){
+currentM=M;
+if(!DATA.nodes)return;
+projectedNodes=DATA.nodes.map(n=>{const p=project(M,n.position);return{node:n,visible:(p[2]>=-1&&p[2]<=1),sx:(p[0]*.5+.5)*canvas.clientWidth,sy:(-p[1]*.5+.5)*canvas.clientHeight,depth:p[2]}});
+}
+function updateHover(mx,my){
+lastMouse={x:mx,y:my};
+if(!projectedNodes.length)return;
+const radius=18;
+let closest=null,minDist=radius;
+for(const p of projectedNodes){if(!p.visible)continue;const d=Math.hypot(p.sx-mx,p.sy-my);if(d<minDist){minDist=d;closest=p}}
+if(closest){
+const n=closest.node;
+if(n.is_tip){
+tooltip.innerHTML="<b>Taxon: "+n.label+"</b><br>Node ID: "+n.node_id+"<br>Trait value (Y / Height): "+n.raw_trait.toFixed(4)+"<br>Time before present (Z): "+n.time.toFixed(4)+"<br>Tree Layout (X): "+n.x.toFixed(2);
+}else{
+tooltip.innerHTML="<b>Node: "+n.node_id+"</b><br>Type: Ancestral Node<br>Trait value (Y / Height): "+n.raw_trait.toFixed(4)+"<br>Time before present (Z): "+n.time.toFixed(4)+"<br>Tree Layout (X): "+n.x.toFixed(2)+(n.descendants?("<br>"+n.descendants):"");
+}
+tooltip.style.display="block";
+const tw=tooltip.offsetWidth||180,th=tooltip.offsetHeight||100;
+const left=Math.max(10,Math.min(window.innerWidth-tw-10,mx+12));
+const top=Math.max(10,Math.min(window.innerHeight-th-10,my+12));
+tooltip.style.left=left+"px";
+tooltip.style.top=top+"px";
+hoverMarker.setAttribute("cx",closest.sx);
+hoverMarker.setAttribute("cy",closest.sy);
+hoverMarker.style.display="block";
+if(n.baseline_pos&&currentM){
+const bp=project(currentM,n.baseline_pos);
+const bx=(bp[0]*.5+.5)*canvas.clientWidth,by=(-bp[1]*.5+.5)*canvas.clientHeight;
+hoverGuide.setAttribute("x1",closest.sx);
+hoverGuide.setAttribute("y1",closest.sy);
+hoverGuide.setAttribute("x2",bx);
+hoverGuide.setAttribute("y2",by);
+hoverGuide.style.display="block";
+}else{hoverGuide.style.display="none"}
+}else{
+tooltip.style.display="none";
+hoverMarker.style.display="none";
+hoverGuide.style.display="none";
+}
+}
+
+canvas.addEventListener("pointerdown",e=>{drag=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId);tooltip.style.display="none";hoverMarker.style.display="none";hoverGuide.style.display="none"});
+canvas.addEventListener("pointerup",()=>drag=false);
+canvas.addEventListener("pointermove",e=>{if(drag){tooltip.style.display="none";hoverMarker.style.display="none";hoverGuide.style.display="none";yaw-=(e.clientX-lx)*.008;pitch+=(e.clientY-ly)*.008;pitch=Math.max(-1.45,Math.min(1.45,pitch));lx=e.clientX;ly=e.clientY;render();return}updateHover(e.clientX,e.clientY)});
+canvas.addEventListener("wheel",e=>{e.preventDefault();zoom*=Math.exp(e.deltaY*.001);zoom=Math.max(.5,Math.min(8,zoom));render()},{passive:false});
+canvas.addEventListener("pointerleave",()=>{tooltip.style.display="none";hoverMarker.style.display="none";hoverGuide.style.display="none"});
+
 function render(){resize();const M=mvp();gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.useProgram(peel);gl.bindVertexArray(meshV);gl.uniformMatrix4fv(gl.getUniformLocation(peel,"uMVP"),false,M);gl.uniform2f(gl.getUniformLocation(peel,"uResolution"),canvas.width,canvas.height);gl.uniform1f(gl.getUniformLocation(peel,"uOpacity"),DATA.opacity);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,null);
 for(let pass=0;pass<4;pass++){gl.bindFramebuffer(gl.FRAMEBUFFER,targets[pass].fb);gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.uniform1i(gl.getUniformLocation(peel,"uHasPrev"),pass>0?1:0);if(pass>0){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,targets[pass-1].depth);gl.uniform1i(gl.getUniformLocation(peel,"uPrevDepth"),0)}if(nidx)gl.drawElements(gl.TRIANGLES,nidx,gl.UNSIGNED_INT,0)}
 gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.disable(gl.DEPTH_TEST);gl.useProgram(comp);for(let i=0;i<4;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,targets[i].color);gl.uniform1i(gl.getUniformLocation(comp,"uLayer"+i),i)}const bg=gl.getUniformLocation(comp,"uBackground");if(DATA.background==="transparent")gl.uniform4f(bg,0,0,0,0);else gl.uniform4f(bg,1,1,1,1);gl.drawArrays(gl.TRIANGLES,0,6);for(let i=0;i<4;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,null)}gl.activeTexture(gl.TEXTURE0);
-if(nline){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(line);gl.bindVertexArray(lineV);gl.uniformMatrix4fv(gl.getUniformLocation(line,"uMVP"),false,M);gl.uniform2f(gl.getUniformLocation(line,"uResolution"),canvas.width,canvas.height);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,targets[0].depth);gl.uniform1i(gl.getUniformLocation(line,"uFrontDepth"),0);gl.uniform1i(gl.getUniformLocation(line,"uHasCurtain"),nidx?1:0);gl.drawArrays(gl.LINES,0,nline);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,null);gl.disable(gl.BLEND)}gl.bindVertexArray(null);gl.bindFramebuffer(gl.FRAMEBUFFER,null);labels(M)}
+if(nline){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(line);gl.bindVertexArray(lineV);gl.uniformMatrix4fv(gl.getUniformLocation(line,"uMVP"),false,M);gl.uniform2f(gl.getUniformLocation(line,"uResolution"),canvas.width,canvas.height);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,targets[0].depth);gl.uniform1i(gl.getUniformLocation(line,"uFrontDepth"),0);gl.uniform1i(gl.getUniformLocation(line,"uHasCurtain"),nidx?1:0);gl.drawArrays(gl.LINES,0,nline);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,null);gl.disable(gl.BLEND)}gl.bindVertexArray(null);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+labels(M);
+updateAxes(M);
+updateProjectedNodes(M);
+if(!drag&&lastMouse)updateHover(lastMouse.x,lastMouse.y);
+}
 window.addEventListener("resize",render);render();
 </script></body></html>"""
 

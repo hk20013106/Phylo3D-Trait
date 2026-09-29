@@ -123,3 +123,135 @@ def test_generated_html_clears_samplers_before_peel_and_performs_symmetric_clean
     assert "gl.bindFramebuffer(gl.FRAMEBUFFER,null);" in html
     assert "gl.bindVertexArray(null);" in html
 
+
+def test_four_layer_axis_payload():
+    payload = _build_payload(
+        _data(),
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        show_tip_labels=True,
+        show_centerline=True,
+        centerline_color="trait",
+        background="white",
+        camera_preset="elife",
+    )
+
+    assert "axes" in payload
+    axes = payload["axes"]
+    assert "y_axis" in axes
+    assert "z_axis" in axes
+    assert "x_axis" in axes
+    assert axes["x_axis"]["show_numeric_labels"] is False
+
+    y_axis = axes["y_axis"]
+    assert y_axis["title"]["text"] == "Trait value"
+    assert len(y_axis["ticks"]) >= 2
+    # Verify Y raw labels are raw scientific traits (not corrupted by trait_display_offset 4.0)
+    raw_texts = [t["text"] for t in y_axis["ticks"]]
+    # In _data(), raw traits are 5.0, 7.0, 9.0; with baseline 0.0 (raw 4.0), raw ticks must include '4', '5', '9'
+    assert "4" in raw_texts
+    assert "5" in raw_texts
+    assert "9" in raw_texts
+
+    # For display Y = 1.0 (val == 1.0), text must be '5'
+    tick_disp_1 = next((t for t in y_axis["ticks"] if abs(t["val"] - 1.0) < 1e-4), None)
+    assert tick_disp_1 is not None
+    assert tick_disp_1["text"] == "5"
+
+    z_axis = axes["z_axis"]
+    assert z_axis["title"]["text"] == "Time before present"
+    assert len(z_axis["ticks"]) >= 2
+    z_texts = [t["text"] for t in z_axis["ticks"]]
+    # Root age is 10.0, present is 0.0
+    assert "0" in z_texts
+    assert "10" in z_texts
+
+
+def test_four_layer_hover_payload():
+    payload = _build_payload(
+        _data(),
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        show_tip_labels=True,
+        show_centerline=True,
+        centerline_color="trait",
+        background="white",
+        camera_preset="elife",
+    )
+
+    assert "nodes" in payload
+    nodes = payload["nodes"]
+    assert len(nodes) == 3
+
+    tips = [n for n in nodes if n["is_tip"]]
+    internals = [n for n in nodes if not n["is_tip"]]
+    assert len(tips) == 2
+    assert len(internals) == 1
+
+    for tip in tips:
+        assert "label" in tip and tip["label"] in ["A", "B"]
+        assert "node_id" in tip and tip["node_id"] in ["A", "B"]
+        assert "raw_trait" in tip and tip["raw_trait"] in [5.0, 9.0]
+        assert "time" in tip and tip["time"] == pytest.approx(0.0)
+        assert "x" in tip and isinstance(tip["x"], float)
+        assert len(tip["position"]) == 3
+        assert len(tip["baseline_pos"]) == 3
+
+    internal = internals[0]
+    assert "node_id" in internal and internal["node_id"].startswith("clade:")
+    assert internal["raw_trait"] == pytest.approx(7.0)
+    assert internal["time"] == pytest.approx(10.0)
+    assert isinstance(internal["x"], float)
+    assert "descendants" in internal
+    assert internal["descendants"].startswith("Descendants (2 tips):")
+    assert "A" in internal["descendants"] and "B" in internal["descendants"]
+
+
+def test_four_layer_generated_html_static_features(tmp_path):
+    out = tmp_path / "four_layer_features.html"
+    write_four_layer_html(
+        _data(),
+        out,
+        opacity=0.7,
+        baseline_y=0.0,
+        reverse_colorscale=True,
+        curtain_color_mode="branch",
+        trait_axis_scale=0.5,
+        tip_label_offset=0.03,
+        centerline_color="trait",
+    )
+    html = out.read_text(encoding="utf-8")
+
+    # Axes overlay
+    assert '<svg id="axes">' in html
+    assert "updateAxes" in html
+    assert "svgFrameLines" in html
+    assert "svgYTicks" in html
+    assert "svgZTicks" in html
+
+    # Node picking and tooltip DOM
+    assert '<div id="tooltip">' in html
+    assert "updateHover" in html
+    assert "projectedNodes" in html
+    assert "hoverMarker" in html
+    assert "hoverGuide" in html
+
+    # Camera-aware label anchor
+    assert "const eyeX=Math.cos(pitch)*Math.sin(yaw);" in html
+    assert 'const tx=eyeX<0?"translate(calc(-100% - 3px),-50%)":"translate(3px,-50%)";' in html
+    assert "e.style.transform=tx" in html
+
+    # Guard against forbidden Plotly workarounds
+    assert "Plotly.moveTraces" not in html
+    assert "nearest-corner" not in html
+    assert "gl.objects" not in html
+
+
