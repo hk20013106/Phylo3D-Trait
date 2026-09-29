@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from phylo3d_trait.io import load_trait_values
+from phylo3d_trait.four_layer_renderer import write_four_layer_html
 from phylo3d_trait.renderer import build_figure, build_plot_data
 from phylo3d_trait.template import generate_template_csv
 from phylo3d_trait.tree import parse_tree
@@ -65,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plot_parser.add_argument(
         "--title", type=str, default=None, help="Plot title"
+    )
+    plot_parser.add_argument(
+        "--renderer", choices=["plotly", "four-layer"], default="plotly",
+        help=(
+            "Rendering backend (default: plotly). four-layer uses fixed four-layer "
+            "per-fragment depth peeling and supports opacity 0.5..1.0."
+        ),
     )
     plot_parser.add_argument(
         "--colorscale", type=str, default="Turbo", help="Plotly colorscale name (default: Turbo)"
@@ -191,26 +199,53 @@ def run_plot(args: argparse.Namespace) -> int:
             baseline_raw_value=args.baseline_raw_value,
             trait_display_offset=args.trait_display_offset,
         )
-        fig = build_figure(
-            plot_data=plot_data,
-            title=args.title,
-            branch_width=args.branch_width,
-            show_tip_labels=not args.no_labels,
-            show_mesh=not args.no_mesh,
-            mesh_opacity=args.opacity,
-            show_centerline=not args.no_centerline,
-            centerline_color=args.centerline_color,
-            baseline_y=args.baseline_y,
-            baseline_raw_value=args.baseline_raw_value,
-            show_node_markers=args.show_node_markers,
-            background=args.background,
-            camera_preset=args.camera_preset,
-            reverse_colorscale=args.reverse_colorscale,
-            curtain_color_mode=args.curtain_color_mode,
-            trait_axis_scale=args.trait_axis_scale,
-            tip_label_offset=args.tip_label_offset,
-        )
-        fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
+        if args.renderer == "four-layer":
+            if args.no_mesh:
+                raise ValueError(
+                    "--renderer four-layer requires curtain meshes; remove --no-mesh"
+                )
+            payload = write_four_layer_html(
+                plot_data=plot_data,
+                output_path=out_path,
+                opacity=args.opacity,
+                baseline_y=args.baseline_y,
+                reverse_colorscale=args.reverse_colorscale,
+                curtain_color_mode=args.curtain_color_mode,
+                trait_axis_scale=args.trait_axis_scale,
+                tip_label_offset=args.tip_label_offset,
+                show_tip_labels=not args.no_labels,
+                show_centerline=not args.no_centerline,
+                centerline_color=args.centerline_color,
+                background=args.background,
+                camera_preset=args.camera_preset,
+            )
+            print(
+                "Four-layer renderer: "
+                f"{payload['stats']['triangles']} triangles, "
+                "4 peel layers, omitted transmittance <= "
+                f"{payload['max_omitted_transmittance'] * 100:.2f}%"
+            )
+        else:
+            fig = build_figure(
+                plot_data=plot_data,
+                title=args.title,
+                branch_width=args.branch_width,
+                show_tip_labels=not args.no_labels,
+                show_mesh=not args.no_mesh,
+                mesh_opacity=args.opacity,
+                show_centerline=not args.no_centerline,
+                centerline_color=args.centerline_color,
+                baseline_y=args.baseline_y,
+                baseline_raw_value=args.baseline_raw_value,
+                show_node_markers=args.show_node_markers,
+                background=args.background,
+                camera_preset=args.camera_preset,
+                reverse_colorscale=args.reverse_colorscale,
+                curtain_color_mode=args.curtain_color_mode,
+                trait_axis_scale=args.trait_axis_scale,
+                tip_label_offset=args.tip_label_offset,
+            )
+            fig.write_html(str(out_path), include_plotlyjs="cdn", full_html=True)
         print(f"Successfully generated 3D phylogenetic visualization: {out_path}")
         return 0
     except Exception as e:
