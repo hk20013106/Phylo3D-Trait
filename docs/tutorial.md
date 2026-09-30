@@ -312,7 +312,7 @@ This is the safest way to understand what a display option does: change one visu
 
 ### 7.1 Full trait scale from 0 to 10
 
-Use a zero baseline and leave the raw trait geometry unchanged. The portfolio values span 4.4–9.6, so the visible Y axis naturally occupies approximately 0–10.
+Use a zero baseline and leave the raw trait geometry unchanged. The portfolio values span exactly 4.0–10.0. With a zero curtain baseline, the visible Y axis therefore runs from 0 to 10.
 
 ```bash
 phylo3d-trait plot \
@@ -321,9 +321,10 @@ phylo3d-trait plot \
   --output beauty_01_0_to_10.html \
   --renderer four-layer \
   --baseline-y 0 \
-  --opacity 0.8 \
+  --opacity 0.85 \
   --curtain-color-mode branch \
-  --centerline-color trait
+  --centerline-color trait \
+  --title "Beauty Portfolio — Baseline 0 to 10"
 ```
 
 ![Beauty Portfolio: zero baseline, approximately 0 to 10](assets/tutorial/beauty_01_0_to_10.png)
@@ -342,9 +343,10 @@ phylo3d-trait plot \
   --renderer four-layer \
   --trait-display-offset 4 \
   --baseline-y 0 \
-  --opacity 0.8 \
+  --opacity 0.85 \
   --curtain-color-mode branch \
-  --centerline-color trait
+  --centerline-color trait \
+  --title "Beauty Portfolio — Trait Axis Starts at 4"
 ```
 
 ![Beauty Portfolio: raw trait 4 mapped to visual baseline 0](assets/tutorial/beauty_02_offset4.png)
@@ -369,9 +371,10 @@ phylo3d-trait plot \
   --renderer four-layer \
   --trait-display-range 10 4 \
   --baseline-y 4 \
-  --opacity 0.8 \
+  --opacity 0.85 \
   --curtain-color-mode branch \
-  --centerline-color trait
+  --centerline-color trait \
+  --title "Beauty Portfolio — Reversed Trait Height"
 ```
 
 ![Beauty Portfolio: reversed trait-height direction](assets/tutorial/beauty_03_reversed_height.png)
@@ -394,7 +397,8 @@ phylo3d-trait plot \
   --baseline-y 0 \
   --opacity 1.0 \
   --curtain-color-mode branch \
-  --centerline-color trait
+  --centerline-color trait \
+  --title "Beauty Portfolio — 100% Opaque"
 ```
 
 ![Beauty Portfolio: 100 percent opacity](assets/tutorial/beauty_04_opaque.png)
@@ -415,7 +419,8 @@ phylo3d-trait plot \
   --baseline-y 0 \
   --opacity 0.8 \
   --curtain-color-mode branch \
-  --centerline-color trait
+  --centerline-color trait \
+  --title "Beauty Portfolio — 80% Opacity"
 ```
 
 ![Beauty Portfolio: 80 percent opacity](assets/tutorial/beauty_05_opacity80.png)
@@ -436,7 +441,8 @@ phylo3d-trait plot \
   --baseline-y 0 \
   --opacity 0.8 \
   --curtain-color-mode height \
-  --centerline-color trait
+  --centerline-color trait \
+  --title "Beauty Portfolio — Height-based Curtain Color"
 ```
 
 ![Beauty Portfolio: height-based curtain coloring](assets/tutorial/beauty_06_height_color.png)
