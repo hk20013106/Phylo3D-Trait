@@ -460,7 +460,13 @@ All six panels use identical node values. Therefore differences among the figure
 
 ## 8. Real-data example: Eulipotyphla Hb buffering evolution
 
-The repository includes a 38-species Eulipotyphla dataset under [`examples/eulipotyphla/`](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla):
+The repository includes a 38-species Eulipotyphla dataset under [`examples/eulipotyphla/`](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla).
+
+![Eulipotyphla renderer preview](assets/preview_eulipotyphla.png)
+
+*Renderer preview from the validated Eulipotyphla development artifact. This figure demonstrates the scale, topology, transparency, labels, and overall visual appearance of a real-data analysis. It is **not** presented as the final sequence-based ancestral Hb4 reconstruction described below; the current scientific workflow requires sequence-derived ancestral HBA_T1/HBB_T1 values before a final biological figure is released.*
+
+The public example contains:
 
 ```text
 examples/eulipotyphla/
