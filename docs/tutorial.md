@@ -239,6 +239,112 @@ However, the default renderer is currently `plotly`. For publication-oriented tr
 
 ---
 
+## 5. Command Line Interface (CLI) Reference
+
+The CLI is invoked via `python -m phylo3d_trait.cli <command>` (or `phylo3d-trait <command>` when installed).
+
+### Subcommand: `template-values`
+```bash
+python -m phylo3d_trait.cli template-values -h
+```
+- `--tree, -t` *(required)*: Path to Newick or Nexus tree file.
+- `--output, -o` *(required)*: Path to save the generated template CSV.
+- `--default-val`: Optional placeholder string for the trait column (default: `""`).
+
+### Subcommand: `plot`
+```bash
+python -m phylo3d_trait.cli plot -h
+```
+
+#### Core Inputs & Outputs
+- `--tree, -t` *(required)*: Path to Newick or Nexus tree file.
+- `--values, -v` *(required)*: Path to CSV or TSV trait values table.
+- `--output, -o` *(required)*: Path to output standalone HTML file.
+- `--title`: Title displayed above the 3D scene.
+- `--renderer {four-layer, plotly}`: Rendering engine backend (default: `plotly`; `four-layer` recommended).
+
+#### Rendering, Transparency & Aesthetics
+- `--opacity`: Curtain mesh opacity (default: `1.0`). In `four-layer` mode, supports `0.5`–`1.0` (0%–50% transparency); in `plotly` mode, supports `0.0`–`1.0`.
+- `--curtain-color-mode {branch, height}`: `branch` vertically projects local branch trait color; `height` applies a vertical gradient.
+- `--centerline-color`: Branch top outline color (`dark` [default], `trait`, or custom CSS color).
+- `--colorscale`: Continuous palette name (e.g. `Turbo`, `Viridis`, `Plasma`, `Spectral`, default: `Turbo`).
+- `--reverse-colorscale`: Reverses color palette without altering trait heights or raw values.
+- `--branch-width`: Line width for 3D branch top outlines (default: `1.0`).
+- `--background {white, transparent}`: Background styling (default: `white`).
+- `--segments, -s`: Linear interpolation subdivisions per branch (default: `10`).
+
+#### Trait Geometry & Aspect Ratios
+- `--baseline-y`: Custom baseline $Y$ trait plane elevation (default: minimum observed trait).
+- `--baseline-raw-value`: Custom numeric trait value displayed at baseline $Y$ on axis and colorbar.
+- `--trait-display-offset OFFSET`: Geometric zero shift ($Y_{\text{display}} = \text{Trait}_{\text{raw}} - \text{OFFSET}$). Axis ticks and hover tooltips still show raw scientific values.
+- `--trait-display-range START END`: Linear remapping of raw traits `[min, max]` to target display coordinates `[START, END]`.
+- `--trait-axis-scale SCALE`: Visual-only Trait ($Y$) axis aspect ratio multiplier (default: `1.0`). E.g., `0.5` compresses visual height by half; `1.5` stretches it by 150%. Scientific values, ticks, colors, and mesh coordinates remain uncorrupted.
+
+#### Camera, Labels & Viewport
+- `--camera-preset {elife, root_front, tips_front}`: Initial camera angle (default: `elife`).
+- `--tip-label-offset FRACTION`: Outward offset of terminal species labels beyond the present plane, expressed as a fraction of time span (default: `0.03`).
+- `--no-labels`: Disable terminal taxon labels along the Tree Layout axis.
+
+#### Display Toggles (Visual-Only Layer)
+- `--no-x-axis`: Hide Tree Layout ($X$) axis line and baseline markers.
+- `--no-y-axis`: Hide Trait value ($Y$) numerical axis line, ticks, labels, and title.
+- `--no-z-axis`: Hide Time before present ($Z$) numerical axis line, ticks, labels, and title.
+- `--no-tip-hover`: Disable interactive hover tooltip and indicator on terminal tip taxa.
+- `--no-internal-hover`: Disable interactive hover tooltip and indicator on internal ancestral nodes.
+- `--no-mesh`: Disable continuous curtain mesh surfaces.
+- `--no-centerline`: Disable branch top centerline outlines.
+- `--show-node-markers`: Render diamond markers at ancestral nodes (default: `False`).
+
+---
+
+## 6. Python API Reference
+
+Phylo3D-Trait can be integrated directly into Python pipelines and computational workflows:
+
+```python
+from phylo3d_trait import (
+    parse_tree,
+    build_plot_data,
+    build_figure,
+    build_four_layer_html,
+)
+from phylo3d_trait.io import load_trait_values
+
+# 1. Parse tree and load trait table
+tree = parse_tree("path/to/tree.nwk")
+traits = load_trait_values("path/to/node_values.csv")
+
+# 2. Build 3D plot data model
+plot_data = build_plot_data(
+    tree_input=tree,
+    trait_values=traits,
+    num_segments=10,
+    colorscale="Turbo",
+    curtain_color_mode="branch",
+    reverse_colorscale=True,
+)
+
+# 3A. Render with modern Four-Layer WebGL2 engine (OIT + Adaptive Axes)
+html_content = build_four_layer_html(
+    plot_data=plot_data,
+    opacity=0.85,
+    camera_preset="elife",
+    centerline_color="trait",
+)
+with open("tree3d_four_layer.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+# 3B. Or render with classic Plotly engine
+fig = build_figure(
+    plot_data=plot_data,
+    camera_preset="elife",
+    background="white",
+)
+fig.write_html("tree3d_plotly.html", include_plotlyjs="cdn")
+```
+
+---
+
 ## AI execution contract
 
 An AI agent using Phylo3D-Trait should follow these rules exactly:
@@ -275,4 +381,4 @@ The repository contains the same four-taxon example used above:
 - [Example tree](https://github.com/hk20013106/Phylo3D-Trait/blob/main/examples/example1/tree.nwk)
 - [Example node values](https://github.com/hk20013106/Phylo3D-Trait/blob/main/examples/example1/node_values.csv)
 
-For all CLI options, see the [User & AI Agent Guide](PHYLO3D_TRAIT_USAGE_GUIDE.md).
+For deeper implementation notes and agent guardrails, see the [User & AI Agent Guide](PHYLO3D_TRAIT_USAGE_GUIDE.md).
