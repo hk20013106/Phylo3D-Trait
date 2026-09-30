@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/hk20013106/Phylo3D-Trait)](https://github.com/hk20013106/Phylo3D-Trait/releases/latest)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23044881.svg)](https://doi.org/10.5281/zenodo.23044881)
 [![CI](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml/badge.svg)](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml)
 [![WebGL2 OIT](https://img.shields.io/badge/WebGL2-Order--Independent%20Transparency-purple.svg)]()
 
@@ -24,6 +25,7 @@ Generates publication-oriented orthogonal rectangular phylograms with vertical c
 <p align="center"><em>Real-world macroevolutionary dataset (Eulipotyphla, 38 species) rendered with the Four-Layer WebGL2 engine at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels.</em></p>
 
 > 🌐 **Project site**: https://hk20013106.github.io/Phylo3D-Trait/  
+> 🚀 **Step-by-step Tutorial**: [installation → inputs → ancestral node IDs → run](docs/tutorial.md)  
 > 📖 **User & AI Agent Manual**: [`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)  
 > 🐛 **Bug reports / feature requests**: use [GitHub Issues](https://github.com/hk20013106/Phylo3D-Trait/issues). Pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
@@ -54,7 +56,10 @@ Generates publication-oriented orthogonal rectangular phylograms with vertical c
   - **PNG Export**: 2× Retina resolution raster export capturing curtains, centerlines, axes, labels, and colorbar into a crisp publication-ready image.
   - **Hybrid SVG Export**: Native SVG packaging the WebGL 4-layer depth-peeled curtain raster inside an `<image>` element, with all axes, tick marks, titles, species labels, and colorbar exported as lossless, editable vector graphics (`<line>`, `<text>`, `<rect>`).
 - 🔒 **Deterministic Clade Identity**:
-  - Stable SHA-256 hash IDs for all ancestral nodes derived from alphabetically sorted descendant tip names (`clade:<hash>`).
+  - Stable IDs for ancestral nodes are derived only from their descendant tip names, so child-order changes such as `(A,B)` vs `(B,A)` do not change node identity.
+  - Algorithm: trim names → deduplicate → lexicographically sort → join with a literal comma → SHA-256 (UTF-8) → keep the first 12 lowercase hex characters → prefix `clade:`.
+  - Exact rule: `clade_id = "clade:" + sha256(",".join(sorted(set(descendant_tips))).encode("utf-8")).hexdigest()[:12]`.
+  - Users should normally **not calculate these IDs manually**; run `template-values` to generate every internal-node ID together with its descendant-tip list.
 
 ### Order-Independent Transparency (OIT): Opaque vs 0.2 Transparency
 
@@ -127,10 +132,12 @@ Species_A,1.25
 Species_B,2.10
 Species_C,3.85
 Species_D,4.50
-clade:b17c8419f544,1.64
-clade:6a5756530335,4.10
-clade:17f5f129f4c7,2.50
+clade:9a97b9510492,1.64
+clade:33403161a438,4.10
+clade:9be07a6bfa6b,2.50
 ```
+
+For the illustrative topology `((Species_A,Species_B),(Species_C,Species_D));`, the three internal IDs above are reproducible from the exact hashing rule: `Species_A,Species_B → clade:9a97b9510492`, `Species_C,Species_D → clade:33403161a438`, and all four tips (the root) → `clade:9be07a6bfa6b`.
 
 > [!IMPORTANT]
 > **Completeness Requirement**: All tips, internal nodes, and the root must have explicit numeric trait values. If any node is unassigned, the tool halts immediately with an informative error listing the missing nodes.
@@ -312,11 +319,11 @@ pytest tests/ -v
 
 ## 9. Citation, Support & Contributing
 
-If you use **Phylo3D-Trait** in research, cite the software using [`CITATION.cff`](CITATION.cff). A DOI will be added after archival release.
+If you use **Phylo3D-Trait** in research, cite the software using [`CITATION.cff`](CITATION.cff). The Zenodo repository DOI is [10.5281/zenodo.23044881](https://doi.org/10.5281/zenodo.23044881).
 
 Current software citation:
 
-> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.2. GitHub: https://github.com/hk20013106/Phylo3D-Trait
+> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.2. GitHub: https://github.com/hk20013106/Phylo3D-Trait. Zenodo: https://doi.org/10.5281/zenodo.23044881
 
 The motivating macroevolutionary application concerns hemoglobin buffering power ($\beta\text{Hb4}$) and respiratory adaptation across deep-time mammal and bird phylogenies.
 

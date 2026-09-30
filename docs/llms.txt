@@ -5,6 +5,7 @@
 Canonical repository: https://github.com/hk20013106/Phylo3D-Trait
 PyPI: https://pypi.org/project/phylo3d-trait/
 Project site: https://hk20013106.github.io/Phylo3D-Trait/
+Zenodo DOI: https://doi.org/10.5281/zenodo.23044881
 Version: 0.3.2
 License: MIT
 
@@ -26,6 +27,7 @@ License: MIT
 - No evolutionary model fitting.
 
 ## Primary documentation
+- Tutorial: https://github.com/hk20013106/Phylo3D-Trait/blob/main/docs/tutorial.md
 - README: https://github.com/hk20013106/Phylo3D-Trait/blob/main/README.md
 - User/agent guide: https://github.com/hk20013106/Phylo3D-Trait/blob/main/docs/PHYLO3D_TRAIT_USAGE_GUIDE.md
 - Contribution guide: https://github.com/hk20013106/Phylo3D-Trait/blob/main/CONTRIBUTING.md
