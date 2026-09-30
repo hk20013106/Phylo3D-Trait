@@ -45,7 +45,27 @@ clade:xxxxxxxxxxxx,1.64
 
 All terminal tips, internal nodes, and the root require explicit numeric values. Missing required node values must fail loudly; never silently impute them.
 
-Internal-node identifiers are deterministic hashes of descendant tip sets. Generate them with `template-values`; never guess them.
+Internal-node identifiers are deterministic hashes of descendant tip sets. For each internal node, Phylo3D-Trait trims descendant tip names, removes duplicates, sorts them lexicographically, joins them with a literal comma and no spaces, computes SHA-256 on the UTF-8 string, keeps the first 12 lowercase hexadecimal characters, and prefixes `clade:`.
+
+Exact rule:
+
+```python
+clade_id = "clade:" + sha256(
+    ",".join(sorted(set(descendant_tips))).encode("utf-8")
+).hexdigest()[:12]
+```
+
+Example:
+
+```text
+descendant tips: Species_B, Species_A
+canonical key:   Species_A,Species_B
+stable node ID:  clade:9a97b9510492
+```
+
+This makes the ID independent of child ordering in the Newick tree. Tip-name spelling, capitalization, punctuation, or whitespace after trimming still matter because they change the canonical key.
+
+Users should normally generate these IDs with `template-values` rather than calculate or guess them manually; the generated template includes each `node_id` together with its descendant-tip list.
 
 ## 3. Recommended workflow
 
