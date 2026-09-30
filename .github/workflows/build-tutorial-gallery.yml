@@ -32,12 +32,12 @@ jobs:
           mkdir -p .tutorial_render docs/assets/tutorial
           BASE="python -m phylo3d_trait.cli plot --tree examples/beauty_portfolio/tree.nwk --values examples/beauty_portfolio/node_values.csv --renderer four-layer --camera-preset elife --centerline-color trait --background white"
 
-          $BASE --output .tutorial_render/beauty_01_0_to_10.html --baseline-y 0 --opacity 0.8 --curtain-color-mode branch
-          $BASE --output .tutorial_render/beauty_02_offset4.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode branch
-          $BASE --output .tutorial_render/beauty_03_reversed_height.html --trait-display-range 10 4 --baseline-y 4 --opacity 0.8 --curtain-color-mode branch
-          $BASE --output .tutorial_render/beauty_04_opaque.html --trait-display-offset 4 --baseline-y 0 --opacity 1.0 --curtain-color-mode branch
-          $BASE --output .tutorial_render/beauty_05_opacity80.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode branch
-          $BASE --output .tutorial_render/beauty_06_height_color.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode height
+          $BASE --output .tutorial_render/beauty_01_0_to_10.html --baseline-y 0 --opacity 0.85 --curtain-color-mode branch --title "Beauty Portfolio — Baseline 0 to 10"
+          $BASE --output .tutorial_render/beauty_02_offset4.html --trait-display-offset 4 --baseline-y 0 --opacity 0.85 --curtain-color-mode branch --title "Beauty Portfolio — Trait Axis Starts at 4"
+          $BASE --output .tutorial_render/beauty_03_reversed_height.html --trait-display-range 10 4 --baseline-y 4 --opacity 0.85 --curtain-color-mode branch --title "Beauty Portfolio — Reversed Trait Height"
+          $BASE --output .tutorial_render/beauty_04_opaque.html --trait-display-offset 4 --baseline-y 0 --opacity 1.0 --curtain-color-mode branch --title "Beauty Portfolio — 100% Opaque"
+          $BASE --output .tutorial_render/beauty_05_opacity80.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode branch --title "Beauty Portfolio — 80% Opacity"
+          $BASE --output .tutorial_render/beauty_06_height_color.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode height --title "Beauty Portfolio — Height-based Curtain Color"
 
       - name: Capture Chromium screenshots
         run: |
