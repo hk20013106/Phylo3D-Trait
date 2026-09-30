@@ -38,6 +38,7 @@ python -m phylo3d_trait.cli plot \
 
 ## Install
 - PyPI: https://pypi.org/project/phylo3d-trait/
+- Zenodo DOI: https://doi.org/10.5281/zenodo.23044881
 
 ## Documentation
 - [Repository README](https://github.com/hk20013106/Phylo3D-Trait)
