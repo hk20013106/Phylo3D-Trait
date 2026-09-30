@@ -306,7 +306,7 @@ The default renderer is currently `plotly`; explicitly select `--renderer four-l
 
 ## 7. Real-data example: Eulipotyphla Hb buffering evolution
 
-The repository includes a 38-species Eulipotyphla dataset under [`examples/eulipotyphla/`](../examples/eulipotyphla/):
+The repository includes a 38-species Eulipotyphla dataset under [`examples/eulipotyphla/`](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla):
 
 ```text
 examples/eulipotyphla/
@@ -535,8 +535,10 @@ MUST NOT:
 
 ## Examples in this repository
 
-- [Toy 4-taxon example](../examples/example1/)
-- [Nested 6-taxon example](../examples/example2/)
-- [Real-data Eulipotyphla starting dataset and sequence-based workflow](../examples/eulipotyphla/)
+- [Toy 4-taxon example](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/example1)
+- [Nested 6-taxon example](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/example2)
+- [Real-data Eulipotyphla starting dataset and sequence-based workflow](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla)
+
+These links open the corresponding directories in the GitHub repository. The GitHub Pages site is built from `docs/` only, so repository-level `examples/` directories are not published as Pages routes.
 
 For deeper implementation notes and agent guardrails, see the [User & AI Agent Guide](PHYLO3D_TRAIT_USAGE_GUIDE.md).
