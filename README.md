@@ -25,7 +25,7 @@ Generates publication-oriented orthogonal rectangular phylograms with vertical c
 <p align="center"><em>Eulipotyphla (38 species) renderer preview at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels. See the <a href="examples/eulipotyphla/">Eulipotyphla example</a> for the scientific data-provenance workflow.</em></p>
 
 > 🌐 **Project site**: https://hk20013106.github.io/Phylo3D-Trait/  
-> 🚀 **Step-by-step Tutorial**: [installation → inputs → ancestral node IDs → run](docs/tutorial.md)  
+> 🚀 **Step-by-step Tutorial**: [installation → inputs → ancestral node IDs → run](https://hk20013106.github.io/Phylo3D-Trait/tutorial.html)  
 > 📖 **User & AI Agent Manual**: [`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)  
 > 🐛 **Bug reports / feature requests**: use [GitHub Issues](https://github.com/hk20013106/Phylo3D-Trait/issues). Pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
@@ -134,7 +134,7 @@ phylo3d-trait plot \
 
 Open `beauty_portfolio.html` in a modern browser.
 
-For the complete start-to-finish workflow and six visual parameter demonstrations, see the **[Tutorial](docs/tutorial.md)**.
+For the complete start-to-finish workflow and six visual parameter demonstrations, see the **[Tutorial](https://hk20013106.github.io/Phylo3D-Trait/tutorial.html)**.
 
 ---
 
@@ -144,7 +144,7 @@ For the complete start-to-finish workflow and six visual parameter demonstration
 - **Tree**: [`examples/beauty_portfolio/tree.nwk`](examples/beauty_portfolio/tree.nwk)
 - **Complete node values**: [`examples/beauty_portfolio/node_values.csv`](examples/beauty_portfolio/node_values.csv)
 - **Purpose**: synthetic presentation-only dataset used to compare axis transforms, opacity, and coloring modes with the same topology and values.
-- **Visual gallery**: see the [Tutorial](docs/tutorial.md#7-visual-portfolio-six-ways-to-render-the-same-data).
+- **Visual gallery**: see the [Tutorial](https://hk20013106.github.io/Phylo3D-Trait/tutorial.html#7-visual-portfolio-six-ways-to-render-the-same-data).
 
 ### Eulipotyphla: real-data workflow
 - **Starting tree**: [`examples/eulipotyphla/tree_eulipotyphla.nwk`](examples/eulipotyphla/tree_eulipotyphla.nwk) — 38-tip dated ultrametric tree.
