@@ -304,7 +304,155 @@ The default renderer is currently `plotly`; explicitly select `--renderer four-l
 
 ---
 
-## 7. Real-data example: Eulipotyphla Hb buffering evolution
+## 7. Visual Portfolio: six ways to render the same data
+
+The [Beauty Portfolio](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/beauty_portfolio) is a synthetic 12-taxon dataset created specifically for learning display controls. Every panel below uses the **same tree and the same raw node values**. Only presentation parameters change.
+
+This is the safest way to understand what a display option does: change one visual decision at a time while holding the data fixed.
+
+### 7.1 Full trait scale from 0 to 10
+
+Use a zero baseline and leave the raw trait geometry unchanged. The portfolio values span 4.4–9.6, so the visible Y axis naturally occupies approximately 0–10.
+
+```bash
+phylo3d-trait plot \
+  --tree examples/beauty_portfolio/tree.nwk \
+  --values examples/beauty_portfolio/node_values.csv \
+  --output beauty_01_0_to_10.html \
+  --renderer four-layer \
+  --baseline-y 0 \
+  --opacity 0.8 \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+![Beauty Portfolio: zero baseline, approximately 0 to 10](assets/tutorial/beauty_01_0_to_10.png)
+
+**What changes:** only the curtain baseline is forced to Y = 0. Raw trait values, colors, topology, and time remain unchanged.
+
+### 7.2 Start the scientific trait axis at 4
+
+For traits that never approach zero, subtract a display offset while keeping the scientific labels and hover values in the original scale.
+
+```bash
+phylo3d-trait plot \
+  --tree examples/beauty_portfolio/tree.nwk \
+  --values examples/beauty_portfolio/node_values.csv \
+  --output beauty_02_offset4.html \
+  --renderer four-layer \
+  --trait-display-offset 4 \
+  --baseline-y 0 \
+  --opacity 0.8 \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+![Beauty Portfolio: raw trait 4 mapped to visual baseline 0](assets/tutorial/beauty_02_offset4.png)
+
+The geometry uses:
+
+```text
+Y_display = trait_raw - 4
+```
+
+but the Y-axis ticks and hover cards still report the **raw scientific values**. Thus the baseline is visually Y = 0 while its scientific label is 4.
+
+### 7.3 Reverse the vertical trait direction
+
+A descending display can be useful when the biological interpretation is easier to read with larger raw values lower in the scene. This is a geometry transform, not a color reversal.
+
+```bash
+phylo3d-trait plot \
+  --tree examples/beauty_portfolio/tree.nwk \
+  --values examples/beauty_portfolio/node_values.csv \
+  --output beauty_03_reversed_height.html \
+  --renderer four-layer \
+  --trait-display-range 10 4 \
+  --baseline-y 4 \
+  --opacity 0.8 \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+![Beauty Portfolio: reversed trait-height direction](assets/tutorial/beauty_03_reversed_height.png)
+
+Here the raw minimum maps to the top of the display range and the raw maximum maps to the bottom. Raw values remain available in axis labels and hover metadata.
+
+> `--trait-display-range 10 4` reverses **height geometry**. It is different from `--reverse-colorscale`, which reverses only palette lookup.
+
+### 7.4 Fully opaque curtains
+
+Set `--opacity 1.0` for completely opaque curtain surfaces.
+
+```bash
+phylo3d-trait plot \
+  --tree examples/beauty_portfolio/tree.nwk \
+  --values examples/beauty_portfolio/node_values.csv \
+  --output beauty_04_opaque.html \
+  --renderer four-layer \
+  --trait-display-offset 4 \
+  --baseline-y 0 \
+  --opacity 1.0 \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+![Beauty Portfolio: 100 percent opacity](assets/tutorial/beauty_04_opaque.png)
+
+Opaque surfaces emphasize the front-most geometry but can hide deeper branches.
+
+### 7.5 80% opacity / 20% transparency
+
+Set `--opacity 0.8` to retain 80% opacity while allowing deeper lineages to remain visible through the curtains.
+
+```bash
+phylo3d-trait plot \
+  --tree examples/beauty_portfolio/tree.nwk \
+  --values examples/beauty_portfolio/node_values.csv \
+  --output beauty_05_opacity80.html \
+  --renderer four-layer \
+  --trait-display-offset 4 \
+  --baseline-y 0 \
+  --opacity 0.8 \
+  --curtain-color-mode branch \
+  --centerline-color trait
+```
+
+![Beauty Portfolio: 80 percent opacity](assets/tutorial/beauty_05_opacity80.png)
+
+This is the same geometry as 7.4. Only opacity changes, so the difference directly demonstrates the Four-Layer transparency renderer.
+
+### 7.6 Use the alternative curtain-coloring mode
+
+The previous portfolio panels use `--curtain-color-mode branch`: each curtain column inherits the local branch trait color vertically. The alternative `height` mode colors vertices according to their Y position and therefore creates a vertical gradient.
+
+```bash
+phylo3d-trait plot \
+  --tree examples/beauty_portfolio/tree.nwk \
+  --values examples/beauty_portfolio/node_values.csv \
+  --output beauty_06_height_color.html \
+  --renderer four-layer \
+  --trait-display-offset 4 \
+  --baseline-y 0 \
+  --opacity 0.8 \
+  --curtain-color-mode height \
+  --centerline-color trait
+```
+
+![Beauty Portfolio: height-based curtain coloring](assets/tutorial/beauty_06_height_color.png)
+
+Use the modes according to what you want the curtain to communicate:
+
+```text
+branch  -> color follows the local branch trait and is projected vertically
+height  -> color follows vertical Y position and forms a gradient
+```
+
+All six panels use identical node values. Therefore differences among the figures are presentation effects, not biological differences.
+
+---
+
+## 8. Real-data example: Eulipotyphla Hb buffering evolution
 
 The repository includes a 38-species Eulipotyphla dataset under [`examples/eulipotyphla/`](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla):
 
@@ -317,7 +465,7 @@ examples/eulipotyphla/
 
 These are the **starting data**, not a pre-filled final node table.
 
-### 7.1 Generate all 37 ancestral/root IDs
+### 8.1 Generate all 37 ancestral/root IDs
 
 ```bash
 phylo3d-trait template-values \
@@ -334,7 +482,7 @@ Validation targets:
 root = clade:6747b5f19c9e
 ```
 
-### 7.2 Obtain ancestral Hb4 values
+### 8.2 Obtain ancestral Hb4 values
 
 For this biological analysis, do **not** use the historical Brownian/fastAnc internal-node values as a fallback.
 
@@ -362,7 +510,7 @@ The 38 extant values in `tip_traits.csv` are retained unchanged.
 
 The historical character-based Brownian table is intentionally **not** included in this example because it is not the accepted ancestral Hb4 source for this analysis. The exact sequence-derived 37-node table should be committed only after those upstream values are available and verified; it must not be fabricated from the old Brownian reconstruction.
 
-### 7.3 Assemble and render
+### 8.3 Assemble and render
 
 Once the verified sequence-derived table is available, merge it with `tip_traits.csv` using Step 5 and save:
 
@@ -392,7 +540,7 @@ This example illustrates why the workflow separates **node identity** from **anc
 
 ---
 
-## 8. Command Line Interface (CLI) Reference
+## 9. Command Line Interface (CLI) Reference
 
 The CLI is invoked via `python -m phylo3d_trait.cli <command>` (or `phylo3d-trait <command>` when installed).
 
@@ -450,7 +598,7 @@ python -m phylo3d_trait.cli plot -h
 
 ---
 
-## 9. Python API Reference
+## 10. Python API Reference
 
 Phylo3D-Trait can be integrated directly into Python pipelines and computational workflows:
 
@@ -535,8 +683,8 @@ MUST NOT:
 
 ## Examples in this repository
 
-- [Toy 4-taxon example](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/example1)
-- [Nested 6-taxon example](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/example2)
+- [Beauty Portfolio visual-parameter example](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/beauty_portfolio)
+- [Nested 6-taxon regression/example dataset](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/example2)
 - [Real-data Eulipotyphla starting dataset and sequence-based workflow](https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla)
 
 These links open the corresponding directories in the GitHub repository. The GitHub Pages site is built from `docs/` only, so repository-level `examples/` directories are not published as Pages routes.
