@@ -25,6 +25,7 @@ Generates publication-oriented orthogonal rectangular phylograms with vertical c
 <p align="center"><em>Real-world macroevolutionary dataset (Eulipotyphla, 38 species) rendered with the Four-Layer WebGL2 engine at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels.</em></p>
 
 > 🌐 **Project site**: https://hk20013106.github.io/Phylo3D-Trait/  
+> 🚀 **Step-by-step Tutorial**: [installation → inputs → ancestral node IDs → run](docs/tutorial.md)  
 > 📖 **User & AI Agent Manual**: [`docs/PHYLO3D_TRAIT_USAGE_GUIDE.md`](docs/PHYLO3D_TRAIT_USAGE_GUIDE.md)  
 > 🐛 **Bug reports / feature requests**: use [GitHub Issues](https://github.com/hk20013106/Phylo3D-Trait/issues). Pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
