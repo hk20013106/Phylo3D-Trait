@@ -55,7 +55,10 @@ Generates publication-oriented orthogonal rectangular phylograms with vertical c
   - **PNG Export**: 2× Retina resolution raster export capturing curtains, centerlines, axes, labels, and colorbar into a crisp publication-ready image.
   - **Hybrid SVG Export**: Native SVG packaging the WebGL 4-layer depth-peeled curtain raster inside an `<image>` element, with all axes, tick marks, titles, species labels, and colorbar exported as lossless, editable vector graphics (`<line>`, `<text>`, `<rect>`).
 - 🔒 **Deterministic Clade Identity**:
-  - Stable SHA-256 hash IDs for all ancestral nodes derived from alphabetically sorted descendant tip names (`clade:<hash>`).
+  - Stable IDs for ancestral nodes are derived only from their descendant tip names, so child-order changes such as `(A,B)` vs `(B,A)` do not change node identity.
+  - Algorithm: trim names → deduplicate → lexicographically sort → join with a literal comma → SHA-256 (UTF-8) → keep the first 12 lowercase hex characters → prefix `clade:`.
+  - Exact rule: `clade_id = "clade:" + sha256(",".join(sorted(set(descendant_tips))).encode("utf-8")).hexdigest()[:12]`.
+  - Users should normally **not calculate these IDs manually**; run `template-values` to generate every internal-node ID together with its descendant-tip list.
 
 ### Order-Independent Transparency (OIT): Opaque vs 0.2 Transparency
 
@@ -128,10 +131,12 @@ Species_A,1.25
 Species_B,2.10
 Species_C,3.85
 Species_D,4.50
-clade:b17c8419f544,1.64
-clade:6a5756530335,4.10
-clade:17f5f129f4c7,2.50
+clade:9a97b9510492,1.64
+clade:33403161a438,4.10
+clade:9be07a6bfa6b,2.50
 ```
+
+For the illustrative topology `((Species_A,Species_B),(Species_C,Species_D));`, the three internal IDs above are reproducible from the exact hashing rule: `Species_A,Species_B → clade:9a97b9510492`, `Species_C,Species_D → clade:33403161a438`, and all four tips (the root) → `clade:9be07a6bfa6b`.
 
 > [!IMPORTANT]
 > **Completeness Requirement**: All tips, internal nodes, and the root must have explicit numeric trait values. If any node is unassigned, the tool halts immediately with an informative error listing the missing nodes.
