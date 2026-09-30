@@ -21,6 +21,12 @@ Phylo3D-Trait is a Python CLI/library for visualizing supplied continuous trait 
 ## What it does not do
 Phylo3D-Trait does not infer phylogenies, date trees, fit evolutionary models, or perform ancestral-state reconstruction.
 
+## Start here
+
+**New user:** [Open the step-by-step Tutorial](tutorial.html)
+
+The tutorial covers installation, input files, ancestral-node IDs, and the exact plotting command.
+
 ## Quick start
 
 ```bash
@@ -41,6 +47,7 @@ python -m phylo3d_trait.cli plot \
 - Zenodo DOI: https://doi.org/10.5281/zenodo.23044881
 
 ## Documentation
+- [Step-by-step Tutorial](tutorial.html)
 - [Repository README](https://github.com/hk20013106/Phylo3D-Trait)
 - [User & AI Agent Guide](PHYLO3D_TRAIT_USAGE_GUIDE.md)
 - [Contributing](https://github.com/hk20013106/Phylo3D-Trait/blob/main/CONTRIBUTING.md)
