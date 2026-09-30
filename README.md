@@ -22,7 +22,7 @@ Generates publication-oriented orthogonal rectangular phylograms with vertical c
 <p align="center">
   <img src="docs/assets/preview_eulipotyphla.png" alt="Phylo3D-Trait Interactive 3D Visualization (0.2 Transparency / Opacity 0.8)" width="95%">
 </p>
-<p align="center"><em>Real-world macroevolutionary dataset (Eulipotyphla, 38 species) rendered with the Four-Layer WebGL2 engine at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels.</em></p>
+<p align="center"><em>Eulipotyphla (38 species) renderer preview at 0.2 transparency (<code>--opacity 0.8</code>), featuring adaptive front-facing axes and camera-aware outward labels. See the <a href="examples/eulipotyphla/">Eulipotyphla example</a> for the scientific data-provenance workflow.</em></p>
 
 > 🌐 **Project site**: https://hk20013106.github.io/Phylo3D-Trait/  
 > 🚀 **Step-by-step Tutorial**: [installation → inputs → ancestral node IDs → run](docs/tutorial.md)  
@@ -162,6 +162,12 @@ For installation details, input-file format, ancestral-node IDs, all CLI options
 <p align="center">
   <img src="docs/assets/preview_example2.png" alt="Example 2 3D Phylogeny" width="90%">
 </p>
+
+### Example 3: Eulipotyphla real-data workflow
+- **Starting tree**: [`examples/eulipotyphla/tree_eulipotyphla.nwk`](examples/eulipotyphla/tree_eulipotyphla.nwk) — 38-tip dated ultrametric tree.
+- **Observed tip traits**: [`examples/eulipotyphla/tip_traits.csv`](examples/eulipotyphla/tip_traits.csv).
+- **Workflow/provenance**: [`examples/eulipotyphla/README.md`](examples/eulipotyphla/README.md).
+- Generate the 37 internal/root stable IDs with `template-values`, then supply the independently reconstructed ancestral trait values. For the Hb-buffering analysis, the intended ancestral values are sequence-derived rather than the historical Brownian/fastAnc internal-node values.
 
 ---
 
