@@ -4,11 +4,11 @@ Taxon_B,Taxon_B,tip,1,Taxon_B,5.5
 Taxon_C,Taxon_C,tip,1,Taxon_C,6.0
 Taxon_D,Taxon_D,tip,1,Taxon_D,7.2
 Taxon_E,Taxon_E,tip,1,Taxon_E,8.8
-Taxon_F,Taxon_F,tip,1,Taxon_F,9.6
+Taxon_F,Taxon_F,tip,1,Taxon_F,10.0
 Taxon_G,Taxon_G,tip,1,Taxon_G,7.8
 Taxon_H,Taxon_H,tip,1,Taxon_H,6.8
 Taxon_I,Taxon_I,tip,1,Taxon_I,5.2
-Taxon_J,Taxon_J,tip,1,Taxon_J,4.4
+Taxon_J,Taxon_J,tip,1,Taxon_J,4.0
 Taxon_K,Taxon_K,tip,1,Taxon_K,8.0
 Taxon_L,Taxon_L,tip,1,Taxon_L,9.4
 clade:f1f8fb20b3ea,Ancestor_AB,internal,2,Taxon_A;Taxon_B,5.0
