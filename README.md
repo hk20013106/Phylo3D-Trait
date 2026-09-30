@@ -112,9 +112,9 @@ $$\text{Point}_k = (X_k, \text{Trait}_k, \text{Time}_k)$$
 
 ---
 
-## 4. Quickstart: one toy example
+## 4. Quickstart: Beauty Portfolio
 
-Clone the repository, install the stable package, and render the built-in four-taxon example:
+Clone the repository, install the stable package, and render the presentation-focused portfolio dataset:
 
 ```bash
 git clone https://github.com/hk20013106/Phylo3D-Trait.git
@@ -122,52 +122,35 @@ cd Phylo3D-Trait
 pip install phylo3d-trait
 
 phylo3d-trait plot \
-  --tree examples/example1/tree.nwk \
-  --values examples/example1/node_values.csv \
-  --output toy_tree3d.html \
+  --tree examples/beauty_portfolio/tree.nwk \
+  --values examples/beauty_portfolio/node_values.csv \
+  --output beauty_portfolio.html \
   --renderer four-layer \
-  --opacity 0.85
+  --baseline-y 0 \
+  --opacity 0.8 \
+  --curtain-color-mode branch \
+  --centerline-color trait
 ```
 
-Open `toy_tree3d.html` in a modern browser.
+Open `beauty_portfolio.html` in a modern browser.
 
-For installation details, input-file format, ancestral-node IDs, all CLI options, and the Python API, see the **[Tutorial](docs/tutorial.md)**.
+For the complete start-to-finish workflow and six visual parameter demonstrations, see the **[Tutorial](docs/tutorial.md)**.
 
 ---
 
-## 5. Built-in Examples
+## 5. Examples
 
-### Example 1: Standard 4-Taxon Dated Phylogeny
-- **Tree**: [`examples/example1/tree.nwk`](examples/example1/tree.nwk) (ultrametric dated tree)
-- **Trait table**: [`examples/example1/node_values.csv`](examples/example1/node_values.csv)
-- **Output preview**: [`examples/example1/tree3d.html`](examples/example1/tree3d.html)
+### Beauty Portfolio: presentation controls
+- **Tree**: [`examples/beauty_portfolio/tree.nwk`](examples/beauty_portfolio/tree.nwk)
+- **Complete node values**: [`examples/beauty_portfolio/node_values.csv`](examples/beauty_portfolio/node_values.csv)
+- **Purpose**: synthetic presentation-only dataset used to compare axis transforms, opacity, and coloring modes with the same topology and values.
+- **Visual gallery**: see the [Tutorial](docs/tutorial.md#7-visual-portfolio-six-ways-to-render-the-same-data).
 
-<p align="center">
-  <img src="docs/assets/preview_example1.png" alt="Example 1 3D Phylogeny" width="90%">
-</p>
-
-### Example 2: 6-Taxon Nested Phylogeny with Baseline $Y = 0$
-- **Tree**: [`examples/example2/tree.nwk`](examples/example2/tree.nwk) (nested multi-level clades)
-- **Trait table**: [`examples/example2/node_values.csv`](examples/example2/node_values.csv)
-- **Command**:
-  ```bash
-  python -m phylo3d_trait.cli plot \
-    --tree examples/example2/tree.nwk \
-    --values examples/example2/node_values.csv \
-    --output examples/example2/tree3d.html \
-    --baseline-y 0 \
-    --renderer four-layer
-  ```
-
-<p align="center">
-  <img src="docs/assets/preview_example2.png" alt="Example 2 3D Phylogeny" width="90%">
-</p>
-
-### Example 3: Eulipotyphla real-data workflow
+### Eulipotyphla: real-data workflow
 - **Starting tree**: [`examples/eulipotyphla/tree_eulipotyphla.nwk`](examples/eulipotyphla/tree_eulipotyphla.nwk) — 38-tip dated ultrametric tree.
 - **Observed tip traits**: [`examples/eulipotyphla/tip_traits.csv`](examples/eulipotyphla/tip_traits.csv).
 - **Workflow/provenance**: [`examples/eulipotyphla/README.md`](examples/eulipotyphla/README.md).
-- Generate the 37 internal/root stable IDs with `template-values`, then supply the independently reconstructed ancestral trait values. For the Hb-buffering analysis, the intended ancestral values are sequence-derived rather than the historical Brownian/fastAnc internal-node values.
+- Generate the 37 internal/root stable IDs with `template-values`, then supply independently reconstructed ancestral trait values.
 
 ---
 
