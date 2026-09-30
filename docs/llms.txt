@@ -27,7 +27,7 @@ License: MIT
 - No evolutionary model fitting.
 
 ## Examples
-- Toy example: https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/example1
+- Beauty Portfolio visual-parameter example: https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/beauty_portfolio
 - Eulipotyphla real-data starting dataset/workflow: https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla
 
 ## Primary documentation
