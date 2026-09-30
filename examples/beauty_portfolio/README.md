@@ -7,7 +7,7 @@ It is deliberately separate from the Eulipotyphla biological example. The node v
 ## Files
 
 - `tree.nwk` — ultrametric dated tree, root age 70.
-- `node_values.csv` — complete tip + internal + root trait table, raw trait range 4.4–9.6.
+- `node_values.csv` — complete tip + internal + root trait table, raw trait range 4.0–10.0.
 
 ## Why this example exists
 
