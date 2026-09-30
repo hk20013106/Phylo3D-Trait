@@ -1,0 +1,113 @@
+name: Build tutorial visual portfolio
+
+on:
+  push:
+    branches: [docs-visual-portfolio]
+    paths:
+      - ".github/workflows/build-tutorial-gallery.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  gallery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs-visual-portfolio
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Render six HTML variants
+        run: |
+          set -euxo pipefail
+          mkdir -p .tutorial_render docs/assets/tutorial
+          BASE="python -m phylo3d_trait.cli plot --tree examples/beauty_portfolio/tree.nwk --values examples/beauty_portfolio/node_values.csv --renderer four-layer --camera-preset elife --centerline-color trait --background white"
+
+          $BASE --output .tutorial_render/beauty_01_0_to_10.html --baseline-y 0 --opacity 0.8 --curtain-color-mode branch
+          $BASE --output .tutorial_render/beauty_02_offset4.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode branch
+          $BASE --output .tutorial_render/beauty_03_reversed_height.html --trait-display-range 10 4 --baseline-y 4 --opacity 0.8 --curtain-color-mode branch
+          $BASE --output .tutorial_render/beauty_04_opaque.html --trait-display-offset 4 --baseline-y 0 --opacity 1.0 --curtain-color-mode branch
+          $BASE --output .tutorial_render/beauty_05_opacity80.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode branch
+          $BASE --output .tutorial_render/beauty_06_height_color.html --trait-display-offset 4 --baseline-y 0 --opacity 0.8 --curtain-color-mode height
+
+      - name: Capture Chromium screenshots
+        run: |
+          set -euxo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          python -m http.server 8765 --directory .tutorial_render >/tmp/tutorial-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+
+          capture () {
+            name="$1"
+            "$CHROME" \
+              --headless=new \
+              --no-sandbox \
+              --disable-dev-shm-usage \
+              --hide-scrollbars \
+              --window-size=1600,1000 \
+              --enable-webgl \
+              --ignore-gpu-blocklist \
+              --use-gl=angle \
+              --use-angle=swiftshader \
+              --virtual-time-budget=5000 \
+              --screenshot="docs/assets/tutorial/$name.png" \
+              "http://127.0.0.1:8765/$name.html"
+          }
+
+          capture beauty_01_0_to_10
+          capture beauty_02_offset4
+          capture beauty_03_reversed_height
+          capture beauty_04_opaque
+          capture beauty_05_opacity80
+          capture beauty_06_height_color
+
+      - name: Validate PNG assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import struct
+          expected = [
+              "beauty_01_0_to_10.png",
+              "beauty_02_offset4.png",
+              "beauty_03_reversed_height.png",
+              "beauty_04_opaque.png",
+              "beauty_05_opacity80.png",
+              "beauty_06_height_color.png",
+          ]
+          for name in expected:
+              p = Path("docs/assets/tutorial") / name
+              data = p.read_bytes()
+              if len(data) < 20_000:
+                  raise SystemExit(f"{name}: suspiciously small ({len(data)} bytes)")
+              if data[:8] != b"\x89PNG\r\n\x1a\n":
+                  raise SystemExit(f"{name}: not a PNG")
+              w, h = struct.unpack(">II", data[16:24])
+              if (w, h) != (1600, 1000):
+                  raise SystemExit(f"{name}: unexpected size {w}x{h}")
+              print(f"{name}: PASS {w}x{h} {len(data)} bytes")
+          PY
+
+      - name: Commit screenshots to branch
+        run: |
+          set -euxo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/assets/tutorial/*.png
+          if git diff --cached --quiet; then
+            echo "No screenshot changes"
+          else
+            git commit -m "docs: add tutorial visual portfolio screenshots"
+            git push origin HEAD:docs-visual-portfolio
+          fi
