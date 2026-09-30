@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/hk20013106/Phylo3D-Trait)](https://github.com/hk20013106/Phylo3D-Trait/releases/latest)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23044881.svg)](https://doi.org/10.5281/zenodo.23044881)
 [![CI](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml/badge.svg)](https://github.com/hk20013106/Phylo3D-Trait/actions/workflows/tests.yml)
 [![WebGL2 OIT](https://img.shields.io/badge/WebGL2-Order--Independent%20Transparency-purple.svg)]()
 
@@ -312,11 +313,11 @@ pytest tests/ -v
 
 ## 9. Citation, Support & Contributing
 
-If you use **Phylo3D-Trait** in research, cite the software using [`CITATION.cff`](CITATION.cff). A DOI will be added after archival release.
+If you use **Phylo3D-Trait** in research, cite the software using [`CITATION.cff`](CITATION.cff). The Zenodo repository DOI is [10.5281/zenodo.23044881](https://doi.org/10.5281/zenodo.23044881).
 
 Current software citation:
 
-> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.2. GitHub: https://github.com/hk20013106/Phylo3D-Trait
+> He, K. (2026). *Phylo3D-Trait: Deep-Time Macroevolutionary 3D Trait Visualization*, version 0.3.2. GitHub: https://github.com/hk20013106/Phylo3D-Trait. Zenodo: https://doi.org/10.5281/zenodo.23044881
 
 The motivating macroevolutionary application concerns hemoglobin buffering power ($\beta\text{Hb4}$) and respiratory adaptation across deep-time mammal and bird phylogenies.
 
