@@ -10,6 +10,20 @@ This directory contains the **starting data** for the 38-species Eulipotyphla he
 
 Taxon labels are preserved exactly because stable ancestral-node IDs depend on the literal descendant tip names.
 
+### Public-example provenance
+
+The original project files live outside this public repository. The two public example inputs here were recovered from the validated Eulipotyphla rendering artifact used during Phylo3D-Trait development, then checked for internal consistency:
+
+```text
+tips = 38
+internal/root nodes = 37
+all root-to-tip distances = 70.02701
+root stable ID = clade:6747b5f19c9e
+extant trait range = 5.52690 .. 9.82470
+```
+
+They reproduce the validated public example at the stored numerical precision, but they are not presented as a substitute for the upstream raw-analysis archive. If the original source files are later published, compare them directly before replacing these public-example copies.
+
 ## Data flow
 
 These two files are the true starting point:
