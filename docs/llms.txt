@@ -26,6 +26,10 @@ License: MIT
 - No sequence analysis.
 - No evolutionary model fitting.
 
+## Examples
+- Toy example: https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/example1
+- Eulipotyphla real-data starting dataset/workflow: https://github.com/hk20013106/Phylo3D-Trait/tree/main/examples/eulipotyphla
+
 ## Primary documentation
 - Tutorial: https://github.com/hk20013106/Phylo3D-Trait/blob/main/docs/tutorial.md
 - README: https://github.com/hk20013106/Phylo3D-Trait/blob/main/README.md
