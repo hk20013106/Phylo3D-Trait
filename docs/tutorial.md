@@ -1,19 +1,35 @@
 # Phylo3D-Trait Tutorial
 
-**Goal:** go from a phylogenetic tree and continuous trait values to an interactive 3D HTML visualization.
+**Goal:** start from a phylogenetic tree plus observed tip traits, derive stable ancestral-node IDs, add externally reconstructed ancestral traits, and produce an interactive 3D HTML visualization.
 
-This tutorial is written for both human users and AI agents. The canonical workflow is:
+The important distinction is between **starting files**, **derived intermediate files**, and the **final Phylo3D-Trait input**:
 
 ```text
-install
-  -> prepare tree
-  -> generate node IDs with template-values
-  -> fill trait values for every tip + internal node + root
-  -> run plot
-  -> open the generated HTML
+STARTING FILES
+tree.nwk + tip_traits.csv
+          |
+          |  template-values
+          v
+DERIVED NODE TEMPLATE
+node_values_template.csv
+          |
+          |  external ASR / ancestral trait calculation
+          v
+ANCESTRAL TRAITS
+ancestral_traits.csv
+          |
+          |  merge with observed tip traits
+          v
+FINAL PHYLO3D INPUT
+node_values.csv
+          |
+          |  phylo3d-trait plot
+          v
+OUTPUT
+tree3d.html
 ```
 
-> **Important:** Phylo3D-Trait is a visualization tool. It does **not** infer phylogenies, date trees, or reconstruct ancestral trait values. The `template-values` command generates stable ancestral-node IDs only.
+> **Phylo3D-Trait does not reconstruct ancestral states.** It generates stable node IDs and visualizes trait values supplied for those nodes.
 
 ---
 
@@ -25,20 +41,20 @@ Install the stable release from PyPI:
 pip install phylo3d-trait
 ```
 
-Verify the installation:
+Verify:
 
 ```bash
 phylo3d-trait --help
 ```
 
-Expected subcommands include:
+Expected subcommands:
 
 ```text
 plot
 template-values
 ```
 
-If the console command is unavailable in the current environment, the equivalent module form is:
+Equivalent module form:
 
 ```bash
 python -m phylo3d_trait.cli --help
@@ -48,14 +64,16 @@ Python requirement: **3.10+**.
 
 ---
 
-## 2. Prepare the input files
+## 2. Start with two files
 
-Phylo3D-Trait needs two inputs:
+At the beginning of an analysis you need:
 
-1. a phylogenetic tree in **Newick** or **Nexus** format;
-2. a CSV/TSV table containing a numeric trait value for **every tip, every internal node, and the root**.
+1. the phylogenetic tree;
+2. observed trait values for the terminal taxa.
 
-### 2.1 Tree file
+You do **not** need to know the ancestral `clade:<hash>` IDs yet, and you should not invent them.
+
+### 2.1 Phylogenetic tree
 
 Example `tree.nwk`:
 
@@ -63,15 +81,13 @@ Example `tree.nwk`:
 ((A:10.0,B:10.0):20.0,(C:15.0,D:15.0):15.0);
 ```
 
-For a dated/ultrametric tree, branch lengths can be interpreted as evolutionary time and the Z axis can represent time before present.
+Supported formats are Newick and Nexus.
 
-If branch lengths are substitutions/site or their meaning is unknown, do **not** interpret the Z axis as Ma.
+For a dated/ultrametric tree, branch lengths can represent evolutionary time and the Z axis can be interpreted as time before present. If branch lengths are substitutions/site or their meaning is unknown, do **not** label the Z axis as Ma.
 
-### 2.2 Trait-value file
+### 2.2 Observed tip traits
 
-Do **not** invent ancestral node IDs manually. First generate them from the tree as described in Step 3.
-
-After the IDs are known, the trait table can look like this:
+Example `tip_traits.csv`:
 
 ```csv
 node_id,trait
@@ -79,20 +95,17 @@ A,1.5
 B,3.0
 C,4.5
 D,5.0
-clade:b17c8419f544,2.0
-clade:6a5756530335,4.0
-clade:17f5f129f4c7,1.0
 ```
 
-The four tip rows are observed/measured tip values in this example. The three `clade:...` rows are values supplied for the two internal ancestors and the root.
+At this stage the file contains **tips only**. These may be measured phenotypes, physiological values, morphological measurements, genomic quantities, or other continuous traits.
 
-These ancestral **trait values are not calculated by Phylo3D-Trait**. They may come from, for example, `phytools::fastAnc()`, `ape::ace()`, Brownian-motion/OU models, Bayesian reconstruction, or another external workflow.
+The tip names must match the tree tip labels exactly.
 
 ---
 
-## 3. Obtain ancestral-node IDs
+## 3. Generate stable IDs for every ancestral node
 
-Run:
+The tree determines which internal nodes exist. Let Phylo3D-Trait calculate their stable IDs:
 
 ```bash
 phylo3d-trait template-values \
@@ -100,15 +113,7 @@ phylo3d-trait template-values \
   --output node_values_template.csv
 ```
 
-Equivalent module form:
-
-```bash
-python -m phylo3d_trait.cli template-values \
-  --tree tree.nwk \
-  --output node_values_template.csv
-```
-
-For the example tree above, the generated template contains rows equivalent to:
+For the toy tree, the generated file contains:
 
 ```csv
 node_id,label,node_type,descendant_count,descendant_tips,trait
@@ -121,7 +126,7 @@ clade:b17c8419f544,clade:b17c8419f544,internal,2,A;B,
 clade:6a5756530335,clade:6a5756530335,internal,2,C;D,
 ```
 
-The `descendant_tips` column tells a human or AI agent exactly which clade each hash refers to:
+The human-readable `descendant_tips` column tells you exactly what each hash represents:
 
 ```text
 A;B     -> clade:b17c8419f544
@@ -129,18 +134,20 @@ C;D     -> clade:6a5756530335
 A;B;C;D -> clade:17f5f129f4c7   (root)
 ```
 
-### How the ID is generated
+### How the hash is calculated
 
-For each internal node, Phylo3D-Trait:
+For each internal node:
 
-1. collects all descendant tip names;
-2. strips leading/trailing whitespace;
-3. removes duplicates;
-4. sorts names lexicographically;
-5. joins them with a literal comma and no spaces;
-6. computes SHA-256 on the UTF-8 string;
-7. keeps the first 12 lowercase hexadecimal characters;
-8. prefixes `clade:`.
+```text
+descendant tip names
+-> trim whitespace
+-> remove duplicates
+-> lexicographically sort
+-> join with "," and no spaces
+-> SHA-256
+-> first 12 lowercase hexadecimal characters
+-> prefix "clade:"
+```
 
 Exact rule:
 
@@ -156,37 +163,114 @@ Example:
 descendant tips: B, A
 canonical key:   A,B
 SHA-256 prefix:  b17c8419f544
-node ID:         clade:b17c8419f544
+stable node ID:  clade:b17c8419f544
 ```
 
-This makes the ID independent of child order in the tree: `(A,B)` and `(B,A)` produce the same clade ID.
+Thus `(A,B)` and `(B,A)` give the same ID. Taxon spelling, capitalization, and punctuation still matter.
 
-Tip-name spelling still matters. Changing capitalization, punctuation, or the taxon name changes the hash.
-
-**Recommended practice:** always use `template-values`; do not calculate or guess hashes manually.
-
-### Fill the template
-
-After generating the template, fill the `trait` column for every row:
-
-```csv
-node_id,label,node_type,descendant_count,descendant_tips,trait
-A,A,tip,1,A,1.5
-B,B,tip,1,B,3.0
-C,C,tip,1,C,4.5
-D,D,tip,1,D,5.0
-clade:17f5f129f4c7,Root,root,4,A;B;C;D,1.0
-clade:b17c8419f544,Ancestor_AB,internal,2,A;B,2.0
-clade:6a5756530335,Ancestor_CD,internal,2,C;D,4.0
-```
-
-Save it as, for example, `node_values.csv`.
+**Normal users and AI agents should run `template-values`, not calculate hashes manually.**
 
 ---
 
-## 4. Run Phylo3D-Trait
+## 4. Obtain ancestral trait values
 
-Recommended command:
+Now the node identities are known. The next step is scientific inference: obtain a trait value for every internal node and the root.
+
+Phylo3D-Trait deliberately does **not** choose the reconstruction model for you. The appropriate method depends on the biological question.
+
+Possible sources include:
+
+- continuous-trait ASR such as `phytools::fastAnc()` or `ape::ace()`;
+- BM/OU or Bayesian comparative models;
+- ancestral sequence reconstruction followed by a sequence-to-phenotype calculation;
+- experimentally or externally estimated ancestral values.
+
+### 4.1 Reproducible continuous-trait example with `fastAnc`
+
+The following R example starts from the same two initial files, estimates ancestral states, and converts R's temporary node numbers to the same stable `clade:<hash>` identifiers used by Phylo3D-Trait:
+
+```r
+library(ape)
+library(phytools)
+library(digest)
+
+tree <- read.tree("tree.nwk")
+tips <- read.csv("tip_traits.csv", stringsAsFactors = FALSE)
+
+x <- setNames(tips$trait, tips$node_id)
+stopifnot(setequal(names(x), tree$tip.label))
+
+anc <- fastAnc(tree, x)
+
+stable_id <- function(node) {
+  descendants <- phytools::getDescendants(tree, node)
+  tip_ids <- descendants[descendants <= Ntip(tree)]
+  tip_names <- sort(unique(trimws(tree$tip.label[tip_ids])))
+  key <- paste(tip_names, collapse = ",")
+  paste0("clade:", substr(digest(key, algo = "sha256", serialize = FALSE), 1, 12))
+}
+
+ancestral_traits <- data.frame(
+  node_id = vapply(as.integer(names(anc)), stable_id, character(1)),
+  trait = as.numeric(anc)
+)
+
+write.csv(ancestral_traits, "ancestral_traits.csv", row.names = FALSE)
+```
+
+This produces a simple table:
+
+```csv
+node_id,trait
+clade:b17c8419f544,...
+clade:6a5756530335,...
+clade:17f5f129f4c7,...
+```
+
+`fastAnc` is an **example**, not a requirement. Do not use it automatically when the biology calls for a different ancestral reconstruction.
+
+---
+
+## 5. Assemble the final `node_values.csv`
+
+At this point you have:
+
+```text
+tip_traits.csv          # observed terminal values
+ancestral_traits.csv    # reconstructed internal/root values
+node_values_template.csv
+```
+
+Merge the two trait sources onto the generated template:
+
+```python
+import pandas as pd
+
+template = pd.read_csv("node_values_template.csv")
+tips = pd.read_csv("tip_traits.csv")
+ancestors = pd.read_csv("ancestral_traits.csv")
+
+values = pd.concat([tips, ancestors], ignore_index=True)
+
+final = (
+    template.drop(columns=["trait"])
+    .merge(values, on="node_id", how="left", validate="one_to_one")
+)
+
+if final["trait"].isna().any():
+    missing = final.loc[final["trait"].isna(), "node_id"].tolist()
+    raise ValueError(f"Missing trait values: {missing}")
+
+final.to_csv("node_values.csv", index=False)
+```
+
+The final file now contains a numeric trait for **every tip, every internal node, and the root**. This—not the original tip-only table—is the trait file passed to `phylo3d-trait plot`.
+
+---
+
+## 6. Run Phylo3D-Trait
+
+Recommended Four-Layer render:
 
 ```bash
 phylo3d-trait plot \
@@ -199,30 +283,15 @@ phylo3d-trait plot \
   --centerline-color trait
 ```
 
-Equivalent module form:
-
-```bash
-python -m phylo3d_trait.cli plot \
-  --tree tree.nwk \
-  --values node_values.csv \
-  --output tree3d.html \
-  --renderer four-layer \
-  --opacity 0.85 \
-  --curtain-color-mode branch \
-  --centerline-color trait
-```
-
-A successful run ends with a message similar to:
+A successful run ends with:
 
 ```text
 Successfully generated 3D phylogenetic visualization: tree3d.html
 ```
 
-Open `tree3d.html` in a modern browser. The Four-Layer renderer produces a standalone HTML file; no web server is required.
+Open `tree3d.html` in a modern browser.
 
-### Minimal command
-
-Only three paths are mandatory:
+The minimum plotting command is:
 
 ```bash
 phylo3d-trait plot \
@@ -231,15 +300,99 @@ phylo3d-trait plot \
   --output tree3d.html
 ```
 
-However, the default renderer is currently `plotly`. For publication-oriented transparent curtain rendering, explicitly use:
-
-```text
---renderer four-layer
-```
+The default renderer is currently `plotly`; explicitly select `--renderer four-layer` for the publication-oriented WebGL2 renderer.
 
 ---
 
-## 5. Command Line Interface (CLI) Reference
+## 7. Real-data example: Eulipotyphla Hb buffering evolution
+
+The repository includes a 38-species Eulipotyphla dataset under [`examples/eulipotyphla/`](../examples/eulipotyphla/):
+
+```text
+examples/eulipotyphla/
+├── tree_eulipotyphla.nwk
+├── tip_traits.csv
+└── README.md
+```
+
+These are the **starting data**, not a pre-filled final node table.
+
+### 7.1 Generate all 37 ancestral/root IDs
+
+```bash
+phylo3d-trait template-values \
+  --tree examples/eulipotyphla/tree_eulipotyphla.nwk \
+  --output examples/eulipotyphla/node_values_template.csv
+```
+
+Validation targets:
+
+```text
+38 tips
+37 internal/root nodes
+75 total nodes
+root = clade:6747b5f19c9e
+```
+
+### 7.2 Obtain ancestral Hb4 values
+
+For this biological analysis, do **not** use the historical Brownian/fastAnc internal-node values as a fallback.
+
+The intended scientific route is sequence-based:
+
+```text
+dated Eulipotyphla tree
+        +
+IQ-TREE 2 ML ancestral HBA_T1 and HBB_T1 sequences
+        |
+        | same sequence-to-buffer calculation used for extant species
+        v
+ancestral beta_HBA_T1 and beta_HBB_T1
+        |
+        v
+beta_Hb4 = 2 * (beta_HBA_T1 + beta_HBB_T1)
+        |
+        | match each ancestral sequence node to descendant-tip set
+        | -> same clade:<hash> ID
+        v
+37 ancestral/root Hb4 values
+```
+
+The 38 extant values in `tip_traits.csv` are retained unchanged.
+
+The historical character-based Brownian table is intentionally **not** included in this example because it is not the accepted ancestral Hb4 source for this analysis. The exact sequence-derived 37-node table should be committed only after those upstream values are available and verified; it must not be fabricated from the old Brownian reconstruction.
+
+### 7.3 Assemble and render
+
+Once the verified sequence-derived table is available, merge it with `tip_traits.csv` using Step 5 and save:
+
+```text
+examples/eulipotyphla/node_values_sequence_based.csv
+```
+
+Then render:
+
+```bash
+phylo3d-trait plot \
+  --tree examples/eulipotyphla/tree_eulipotyphla.nwk \
+  --values examples/eulipotyphla/node_values_sequence_based.csv \
+  --output eulipotyphla_Hb_3D_sequence_based.html \
+  --renderer four-layer \
+  --camera-preset elife \
+  --trait-display-offset 4 \
+  --baseline-y 0 \
+  --trait-axis-scale 0.5 \
+  --tip-label-offset 0.03 \
+  --reverse-colorscale \
+  --curtain-color-mode branch \
+  --opacity 0.8
+```
+
+This example illustrates why the workflow separates **node identity** from **ancestral trait inference**: Phylo3D-Trait determines stable node IDs from topology, while the biological analysis determines what trait value belongs to each node.
+
+---
+
+## 8. Command Line Interface (CLI) Reference
 
 The CLI is invoked via `python -m phylo3d_trait.cli <command>` (or `phylo3d-trait <command>` when installed).
 
@@ -297,7 +450,7 @@ python -m phylo3d_trait.cli plot -h
 
 ---
 
-## 6. Python API Reference
+## 9. Python API Reference
 
 Phylo3D-Trait can be integrated directly into Python pipelines and computational workflows:
 
@@ -347,38 +500,43 @@ fig.write_html("tree3d_plotly.html", include_plotlyjs="cdn")
 
 ## AI execution contract
 
-An AI agent using Phylo3D-Trait should follow these rules exactly:
+An AI agent should reason about files by provenance, not by filename alone:
 
 ```text
-INPUTS:
-- one Newick/Nexus tree
-- one numeric continuous trait per tip
-- one supplied/reconstructed numeric trait per internal node and root
+STARTING INPUTS:
+- exact Newick/Nexus tree
+- observed tip-only trait table
+
+DERIVED:
+- node_values_template.csv from template-values
+- ancestral_traits.csv from an explicit external scientific method
+- node_values.csv from merging observed tips + reconstructed ancestors
 
 PROCEDURE:
-1. Install phylo3d-trait.
-2. Inspect the tree and determine what branch lengths mean.
-3. Run template-values on the exact tree.
-4. Read node_id + descendant_tips from the generated template.
-5. Map externally obtained ancestral trait estimates to those generated node IDs.
-6. Confirm every template row has a numeric trait value.
-7. Run plot.
-8. Report the exact command and output HTML path.
+1. Inspect the exact tree and determine what branch lengths mean.
+2. Verify tip trait names match tree tip labels exactly.
+3. Run template-values; never invent clade hashes.
+4. Obtain ancestral trait values using the user-specified scientific method.
+5. Map ancestors to the stable IDs generated from the exact tree.
+6. Merge tip and ancestral values onto the template.
+7. Fail if any required node lacks a numeric trait.
+8. Run plot and report the exact output path.
 
 MUST NOT:
-- invent clade hashes;
-- infer ancestral trait values unless explicitly asked to do so with an external method;
-- treat substitution branch lengths as Ma;
-- modify package source code merely because the user supplied a new dataset.
+- treat the final node_values.csv as an unexplained starting file;
+- invent or hand-edit clade hashes;
+- silently choose an ASR model;
+- use historical/fallback ancestral values when the user specifies another method;
+- interpret substitution branch lengths as Ma;
+- modify package source merely because a new dataset is supplied.
 ```
 
 ---
 
-## Built-in example
+## Examples in this repository
 
-The repository contains the same four-taxon example used above:
-
-- [Example tree](https://github.com/hk20013106/Phylo3D-Trait/blob/main/examples/example1/tree.nwk)
-- [Example node values](https://github.com/hk20013106/Phylo3D-Trait/blob/main/examples/example1/node_values.csv)
+- [Toy 4-taxon example](../examples/example1/)
+- [Nested 6-taxon example](../examples/example2/)
+- [Real-data Eulipotyphla starting dataset and sequence-based workflow](../examples/eulipotyphla/)
 
 For deeper implementation notes and agent guardrails, see the [User & AI Agent Guide](PHYLO3D_TRAIT_USAGE_GUIDE.md).
