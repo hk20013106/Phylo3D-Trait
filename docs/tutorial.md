@@ -297,8 +297,6 @@ python -m phylo3d_trait.cli plot -h
 
 ---
 
----
-
 ## 6. Python API Reference
 
 Phylo3D-Trait can be integrated directly into Python pipelines and computational workflows:
@@ -344,8 +342,6 @@ fig = build_figure(
 )
 fig.write_html("tree3d_plotly.html", include_plotlyjs="cdn")
 ```
-
----
 
 ---
 
